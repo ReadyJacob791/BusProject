@@ -1,6 +1,7 @@
 package Project.BusStation;
 
 public class BusStationClass {
+    int Key = 0;
     String name;
     double latitude;
     double longitude;
@@ -9,7 +10,8 @@ public class BusStationClass {
 
     }
 
-    public BusStationClass(String name, double latitude, double longitude) {
+    public BusStationClass(int key, String name, double latitude, double longitude) {
+        this.Key = key;
         this.name = name;
         this.latitude = latitude;
         this.longitude = longitude;
