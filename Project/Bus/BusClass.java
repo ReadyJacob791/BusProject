@@ -4,12 +4,17 @@ public class BusClass {
     String make;
     String model;
     String type;
-    int fuelCapacity;
-    int cruiseSpeed;
-    int fuelBurnRate;
+    double fuelCapacity;
+    double cruiseSpeed;
+    double fuelBurnRate;
 
-    BusClass(String make, String model, String type, int fuelCapacity, int fuelBurnRate, int cruiseSpeed) {
+    BusClass(String make, String model, String type, double fuelCapacity, double fuelBurnRate, double cruiseSpeed) {
         this.make = make;
+        this.model = model;
+        this.type = type;
+        this.fuelCapacity = fuelCapacity;
+        this.fuelBurnRate = fuelBurnRate;
+        this.cruiseSpeed = cruiseSpeed;
     }
 
     public String getMake() {
@@ -36,17 +41,28 @@ public class BusClass {
         this.type = type;
     }
 
-    public int fuelCapacity() {
+    public double getFuelCapacity() {
         return fuelCapacity;
     }
 
-    public void setFuelCapacity(int fuelCapacity) {
+    public void setFuelCapacity(double fuelCapacity) {
         this.fuelCapacity = fuelCapacity;
     }
 
-    public int getcruiseSpeed() {
+    public double getcruiseSpeed() {
         return cruiseSpeed;
     }
 
-    public String 
+    public double getFuelBurnRate() {
+        return fuelBurnRate;
+    }
+
+    public void setFuelBurnRate(double fuelBurnRate) {
+        this.fuelBurnRate = fuelBurnRate;
+    }
+
+    public String displayBusInfo() {
+        String info = make + ", " + model + ", " + type + ", " + fuelCapacity;
+        return info;
+    }
 }

@@ -180,10 +180,6 @@ public class UserInterface {
         JTable table = new JTable(busTable);
         JScrollPane pane = new JScrollPane(table);
 
-        for (BusClass bus : BusManager.busList) {
-            busTable.addRow(new Object[] { bus.getMake() });
-        }
-
         buspanel.add(pane, BorderLayout.EAST);
 
         // --- NEW WRAPPER PANEL FOR THE WEST SIDE ---
