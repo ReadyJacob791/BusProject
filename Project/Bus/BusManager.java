@@ -5,26 +5,26 @@ import Project.Bus.BusClass;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 
 public class BusManager {
     public ArrayList<BusClass> busList = new ArrayList<BusClass>();
-    static String filename = "Project\\Bus\\Bus.csv";
-    static File file = new File(filename);
+    static String filename = "Project/Bus/Bus.csv";
+    File file = new File(filename);
+    String line, make, model, type;
+    double fuelBurnRate, fuelCapacity, cruiseSpeed;
 
-    public BusManager() {
-
+    public BusManager() throws FileNotFoundException {
     }
 
     public void listBuses() {
         try {
             BufferedReader br = new BufferedReader(new FileReader(file));
-            String line, make, model, type;
-            double fuelBurnRate, fuelCapacity, cruiseSpeed;
-
             while ((line = br.readLine()) != null) {
-                System.out.println(line);
                 line = line.replace("\"", "");
                 String[] columns = line.split(", ");
                 make = columns[0];
@@ -43,9 +43,26 @@ public class BusManager {
             e.printStackTrace();
         }
     }
-    
 
-    public ArrayList<BusClass> returnBus() {
-        return busList;
+    public void save() throws IOException {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
+            for (BusClass b : busList) {
+                String line = b.displayBusInfo();
+                pw.println(line);
+            }
+        }
+    }
+
+    public boolean removeBus(int row) {
+        if (row >= 0 && row < busList.size()) {
+            busList.remove(row);
+            try {
+                save();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
+        } else
+            return false;
     }
 }

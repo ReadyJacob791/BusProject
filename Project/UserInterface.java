@@ -13,6 +13,8 @@ import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,9 +30,14 @@ public class UserInterface {
     private JPanel dashboardPanel;
     private JPanel buspanel;
     private BusManager bManager;
+    int selectedRow = -1;
 
     public UserInterface() {
-        bManager = new BusManager();
+        try {
+            bManager = new BusManager();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
         bManager.listBuses();
     }
 
@@ -205,7 +212,6 @@ public class UserInterface {
         for (Object b : bManager.busList) {
             String s = ((BusClass) b).displayBusInfo();
             String[] col = s.split(", ");
-            System.out.println(s);
             busTable.addRow(new Object[] { col[0], col[1], col[2], col[3], col[4], col[5] });
         }
 
@@ -226,13 +232,13 @@ public class UserInterface {
         inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
 
         // Bus Name Input
-        JLabel name = new JLabel("Name:");
-        name.setFont(labelFont);
-        JTextField nameBox = new JTextField(15);
-        nameBox.setFont(inputFont);
-        nameBox.setMaximumSize(boxSize);
-        inputPanel.add(name);
-        inputPanel.add(nameBox);
+        JLabel make = new JLabel("Make:");
+        make.setFont(labelFont);
+        JTextField makeBox = new JTextField(15);
+        makeBox.setFont(inputFont);
+        makeBox.setMaximumSize(boxSize);
+        inputPanel.add(make);
+        inputPanel.add(makeBox);
         inputPanel.add(Box.createVerticalStrut(10)); // Adds spacing between fields
 
         // Model Input
@@ -290,15 +296,18 @@ public class UserInterface {
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new FlowLayout());
 
-        JButton addBtn = new JButton("Submit");
-        JButton removeBtn = new JButton("Remove");
+        JButton submitBus = new JButton("Submit");
+        JButton removeBus = new JButton("Remove");
+        JButton newBus = new JButton("New Bus");
 
         // Make buttons bigger too
-        addBtn.setFont(labelFont);
-        removeBtn.setFont(labelFont);
+        submitBus.setFont(labelFont);
+        removeBus.setFont(labelFont);
+        newBus.setFont(labelFont);
 
-        buttonPanel.add(addBtn);
-        buttonPanel.add(removeBtn);
+        buttonPanel.add(submitBus);
+        buttonPanel.add(newBus);
+        buttonPanel.add(removeBus);
 
         // 3. Add to wrapper
         westWrapper.add(inputPanel);
@@ -308,13 +317,71 @@ public class UserInterface {
         buspanel.add(westWrapper, BorderLayout.WEST);
 
         // change the text boxes besed on the table
+
         table.getSelectionModel().addListSelectionListener(e -> {
-
             if (!e.getValueIsAdjusting()) {
-                // bManager.busList[table.getSelectedRow()]
-
+                selectedRow = table.getSelectedRow();
+                if (selectedRow != -1) {
+                    makeBox.setText(bManager.busList.get(selectedRow).getMake());
+                    modelBox.setText(bManager.busList.get(selectedRow).getModel());
+                    typeBox.setText(bManager.busList.get(selectedRow).getType());
+                    cruiseSpeedBox.setText(String.valueOf(bManager.busList.get(selectedRow).getCruiseSpeed()));
+                    fuelBurnRateBox.setText(String.valueOf(bManager.busList.get(selectedRow).getFuelBurnRate()));
+                    fuelCapacityBox.setText(String.valueOf(bManager.busList.get(selectedRow).getFuelCapacity()));
+                } else {
+                    makeBox.setText("");
+                    modelBox.setText("");
+                    typeBox.setText("");
+                    cruiseSpeedBox.setText("");
+                    fuelBurnRateBox.setText("");
+                    fuelCapacityBox.setText("");
+                }
             }
 
+        });
+        // Submit Button
+        submitBus.addActionListener(e -> {
+            if (selectedRow != -1) {
+                bManager.busList.get(selectedRow).setMake(makeBox.getText());
+                bManager.busList.get(selectedRow).setModel(modelBox.getText());
+                bManager.busList.get(selectedRow).setType(typeBox.getText());
+                bManager.busList.get(selectedRow).setCruiseSpeed(Double.valueOf(cruiseSpeedBox.getText()));
+                bManager.busList.get(selectedRow).setFuelBurnRate(Double.valueOf(fuelBurnRateBox.getText()));
+                bManager.busList.get(selectedRow).setFuelCapacity(Double.valueOf(fuelCapacityBox.getText()));
+                busTable.setValueAt(makeBox.getText(), selectedRow, 0);
+                busTable.setValueAt(modelBox.getText(), selectedRow, 1);
+                busTable.setValueAt(typeBox.getText(), selectedRow, 2);
+                busTable.setValueAt(cruiseSpeedBox.getText(), selectedRow, 3);
+                busTable.setValueAt(fuelBurnRateBox.getText(), selectedRow, 4);
+                busTable.setValueAt(fuelCapacityBox.getText(), selectedRow, 5);
+                try {
+                    bManager.save();
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+            }
+        });
+        // Remove Button
+        removeBus.addActionListener(e -> {
+            if (bManager.removeBus(selectedRow)) {
+                busTable.removeRow(selectedRow);
+            }
+        });
+
+        // New Bus
+        newBus.addActionListener(e -> {
+            BusClass nb = new BusClass();
+            bManager.busList.add(nb);
+            String s = ((BusClass) nb).displayBusInfo();
+            String[] col = s.split(", ");
+            busTable.addRow(new Object[] { col[0], col[1], col[2], col[3], col[4], col[5] });
+            selectedRow = busTable.getRowCount() - 1;
+            makeBox.setText(bManager.busList.get(selectedRow).getMake());
+            modelBox.setText(bManager.busList.get(selectedRow).getModel());
+            typeBox.setText(bManager.busList.get(selectedRow).getType());
+            cruiseSpeedBox.setText(String.valueOf(bManager.busList.get(selectedRow).getCruiseSpeed()));
+            fuelBurnRateBox.setText(String.valueOf(bManager.busList.get(selectedRow).getFuelBurnRate()));
+            fuelCapacityBox.setText(String.valueOf(bManager.busList.get(selectedRow).getFuelCapacity()));
         });
 
         return buspanel;

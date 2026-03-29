@@ -3,12 +3,12 @@ package Project.Bus;
 // finally made it
 
 public class BusClass {
-    String make;
-    String model;
-    String type;
-    double fuelCapacity;
-    double cruiseSpeed;
-    double fuelBurnRate;
+    String make = "make";
+    String model = "model";
+    String type = "type";
+    double fuelCapacity = 0.0;
+    double cruiseSpeed = 0.0;
+    double fuelBurnRate = 0.0;
 
     BusClass(String make, String model, String type, double fuelCapacity, double fuelBurnRate, double cruiseSpeed) {
         this.make = make;
@@ -17,6 +17,9 @@ public class BusClass {
         this.fuelCapacity = fuelCapacity;
         this.fuelBurnRate = fuelBurnRate;
         this.cruiseSpeed = cruiseSpeed;
+    }
+
+    public BusClass() {
     }
 
     public String getMake() {
@@ -51,7 +54,11 @@ public class BusClass {
         this.fuelCapacity = fuelCapacity;
     }
 
-    public double getcruiseSpeed() {
+    public void setCruiseSpeed(double CruiseSpeed) {
+        this.cruiseSpeed = CruiseSpeed;
+    }
+
+    public double getCruiseSpeed() {
         return cruiseSpeed;
     }
 
