@@ -4,6 +4,9 @@ import Project.Bus.BusClass;
 import Project.Bus.BusManager;
 import java.awt.*;
 import java.io.BufferedWriter;
+import java.io.BufferedReader; 
+import java.io.FileReader; 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -134,8 +137,38 @@ public class UserInterface {
         return loginPanel;
     }
 
+    private boolean validateLogin(String username, String password) {
+        File file = new File("Accounts.csv"); 
+
+        if (!file.exists()) {
+            return false; 
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line; 
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(","); // split username and password with a comma
+
+                if (parts.length >= 2) {
+                    String storedUser = parts.trim(); 
+                    String storedPass = parts.trim();
+                    
+                    if (storedUser.equals(username) && storedPass.equals(password)) {
+                        return true; 
+                    }
+                }
+
+            }
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(frame, "Could not read Accounts.csv file");
+            e.printStackTrace();
+        }
+        return false; 
+    }
+
     // current account dialog
     private void showAddAccountDialog() {
+
     JDialog dialog = new JDialog(frame, "Create New Account", true);
     dialog.setLayout(new GridBagLayout());
     GridBagConstraints gbc = new GridBagConstraints();
