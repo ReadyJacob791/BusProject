@@ -2,6 +2,9 @@ package Project;
 
 import Project.Bus.BusClass;
 import Project.Bus.BusManager;
+import Project.BusStation.BusStationClass;
+import Project.BusStation.BusStationManager;
+
 import java.awt.*;
 import java.io.BufferedWriter;
 import java.io.BufferedReader; 
@@ -16,6 +19,8 @@ import javax.swing.table.DefaultTableModel;
 //https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html
 // After the login it should initialize the Weighted Graph
 
+// ADD FUEL TYPE GAS / DESIL TO BUSES AND STATION TYPE REFUEL / NOT TO STATIONS
+
 public class UserInterface {
     private JFrame frame;
     private JPanel cardPanel;
@@ -24,7 +29,11 @@ public class UserInterface {
     private JPanel loginPanel;
     private JPanel dashboardPanel;
     private JPanel buspanel;
+    private JPanel stationpanel;
     private BusManager bManager;
+    private BusStationManager sManager;
+    private DefaultTableModel stationTable;
+
     int selectedRow = -1;
 
     public UserInterface() {
@@ -58,6 +67,7 @@ public class UserInterface {
         cardPanel.add(logInPanel(), "LOGIN");
         cardPanel.add(dashboardPanel(), "DASHBOARD");
         cardPanel.add(manageBus(), "MANAGEBUS");
+        cardPanel.add(manageBusStation(), "MANAGESTATION");
 
         frame.add(cardPanel);
         frame.setVisible(true);
@@ -274,11 +284,11 @@ public class UserInterface {
         buspanel.add(pane, BorderLayout.CENTER);
 
         // --- NEW WRAPPER PANEL FOR THE WEST SIDE ---
-        JPanel westWrapper = new JPanel();
-        westWrapper.setLayout(new BoxLayout(westWrapper, BoxLayout.Y_AXIS));
+        JPanel busWrapper = new JPanel();
+        busWrapper.setLayout(new BoxLayout(busWrapper, BoxLayout.Y_AXIS));
         // Add a little padding around the left panel so it isn't squeezed against the
         // edge
-        westWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        busWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         Dimension boxSize = new Dimension(800, 40); // Increased height for bigger text
 
@@ -365,11 +375,11 @@ public class UserInterface {
         buttonPanel.add(removeBus);
 
         // 3. Add to wrapper
-        westWrapper.add(inputPanel);
-        westWrapper.add(buttonPanel);
+        busWrapper.add(inputPanel);
+        busWrapper.add(buttonPanel);
 
         // Add the single wrapper panel to the West
-        buspanel.add(westWrapper, BorderLayout.WEST);
+        buspanel.add(busWrapper, BorderLayout.WEST);
 
         // change the text boxes besed on the table
 
@@ -500,5 +510,183 @@ public class UserInterface {
         });
 
         return buspanel;
+    }
+
+    // Add / Edit / remove Bus page
+    private JPanel manageBusStation() {
+        JPanel stationpanel = new JPanel(new BorderLayout());
+
+        // --- Define Larger Fonts ---
+        Font labelFont = new Font("SansSerif", Font.BOLD, 18);
+        Font inputFont = new Font("SansSerif", Font.PLAIN, 18);
+        Font tableFont = new Font("SansSerif", Font.PLAIN, 16);
+
+        // --- Station Table Definition ---
+        String tablename[] = { "Name", "Latitude", "Longitude" };
+        // FIX: Use the class-level variable if you have one, or ensure this one is used
+        // consistently
+        DefaultTableModel stationTable = new DefaultTableModel(tablename, 0);
+        JTable table = new JTable(stationTable);
+
+        table.setFont(tableFont);
+        table.setRowHeight(30);
+        table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 16));
+
+        JScrollPane pane = new JScrollPane(table);
+
+        // Load existing stations into the table
+        for (Object st : sManager.stationList) {
+            BusStationClass station = (BusStationClass) st;
+            // Adjusting to 3 columns: Name, Lat, Long
+            stationTable.addRow(new Object[] {
+                    station.getName(),
+                    station.getLatitude(),
+                    station.getLongitude()
+            });
+        }
+
+        stationpanel.add(pane, BorderLayout.CENTER);
+
+        // --- UI WRAPPER ---
+        JPanel stationWrapper = new JPanel();
+        stationWrapper.setLayout(new BoxLayout(stationWrapper, BoxLayout.Y_AXIS));
+        stationWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        Dimension boxSize = new Dimension(800, 40);
+
+        // Input Fields
+        JLabel sName = new JLabel("Station Name:");
+        sName.setFont(labelFont);
+        JTextField sNameBox = new JTextField(15);
+        sNameBox.setFont(inputFont);
+        sNameBox.setMaximumSize(boxSize);
+
+        JLabel latitude = new JLabel("Latitude:");
+        latitude.setFont(labelFont);
+        JTextField latitudeBox = new JTextField(15);
+        latitudeBox.setFont(inputFont);
+        latitudeBox.setMaximumSize(boxSize);
+
+        JLabel longitude = new JLabel("Longitude:");
+        longitude.setFont(labelFont);
+        JTextField longitudeBox = new JTextField(15);
+        longitudeBox.setFont(inputFont);
+        longitudeBox.setMaximumSize(boxSize);
+
+        JPanel inputPanel = new JPanel();
+        inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
+        inputPanel.add(sName);
+        inputPanel.add(sNameBox);
+        inputPanel.add(Box.createVerticalStrut(10));
+        inputPanel.add(latitude);
+        inputPanel.add(latitudeBox);
+        inputPanel.add(Box.createVerticalStrut(10));
+        inputPanel.add(longitude);
+        inputPanel.add(longitudeBox);
+
+        // Buttons
+        JButton submitStation = new JButton("Submit");
+        JButton removeStation = new JButton("Remove");
+        JButton newStation = new JButton("New Station");
+        submitStation.setFont(labelFont);
+        removeStation.setFont(labelFont);
+        newStation.setFont(labelFont);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout());
+        buttonPanel.add(submitStation);
+        buttonPanel.add(removeStation);
+        buttonPanel.add(newStation);
+
+        stationWrapper.add(inputPanel);
+        stationWrapper.add(buttonPanel);
+        stationpanel.add(stationWrapper, BorderLayout.WEST);
+
+        // --- SELECTION LOGIC ---
+        table.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                selectedRow = table.getSelectedRow();
+                if (selectedRow != -1) {
+                    BusStationClass s = sManager.stationList.get(selectedRow);
+                    sNameBox.setText(s.getName());
+                    latitudeBox.setText(String.valueOf(s.getLatitude()));
+                    longitudeBox.setText(String.valueOf(s.getLongitude()));
+                } else {
+                    sNameBox.setText("");
+                    latitudeBox.setText("");
+                    longitudeBox.setText("");
+                }
+            }
+        });
+
+        // --- SUBMIT / VALIDATION LOGIC ---
+        submitStation.addActionListener(e -> {
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(frame, "Please select a station first.");
+                return;
+            }
+
+            StringBuilder errorLog = new StringBuilder();
+            boolean isValid = true;
+
+            String nameVal = sNameBox.getText().trim();
+            String latTxt = latitudeBox.getText().trim();
+            String lonTxt = longitudeBox.getText().trim();
+
+            // Name Validation
+            if (!nameVal.matches("^[a-zA-Z0-9 ]+$")) {
+                errorLog.append("- Name must be alphanumeric.\n");
+                isValid = false;
+            }
+
+            // Lat/Long Validation (Allows negative numbers and decimals)
+            String coordRegex = "^-?[0-9]*\\.?[0-9]+$";
+            if (!latTxt.matches(coordRegex)) {
+                errorLog.append("- Latitude must be a valid coordinate.\n");
+                isValid = false;
+            }
+            if (!lonTxt.matches(coordRegex)) {
+                errorLog.append("- Longitude must be a valid coordinate.\n");
+                isValid = false;
+            }
+
+            if (!isValid) {
+                JOptionPane.showMessageDialog(frame, errorLog.toString(), "Input Errors", JOptionPane.ERROR_MESSAGE);
+            } else {
+                BusStationClass currentStation = sManager.stationList.get(selectedRow);
+                currentStation.setName(nameVal);
+                currentStation.setLatitude(Double.parseDouble(latTxt));
+                currentStation.setLongitude(Double.parseDouble(lonTxt));
+
+                stationTable.setValueAt(nameVal, selectedRow, 0);
+                stationTable.setValueAt(latTxt, selectedRow, 1);
+                stationTable.setValueAt(lonTxt, selectedRow, 2);
+
+                try {
+                    sManager.save(); // Assuming sManager has a save method
+                    JOptionPane.showMessageDialog(frame, "Station Updated!");
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+
+        // --- REMOVE LOGIC ---
+        removeStation.addActionListener(e -> {
+            if (selectedRow != -1) {
+                if (sManager.removeStation(selectedRow)) {
+                    stationTable.removeRow(selectedRow);
+                    selectedRow = -1;
+                }
+            }
+        });
+
+        // --- NEW STATION LOGIC ---
+        newStation.addActionListener(e -> {
+            BusStationClass ns = new BusStationClass("New Station", 0.0, 0.0);
+            sManager.stationList.add(ns);
+            stationTable.addRow(new Object[] { "New Station", "0.0", "0.0" });
+            table.setRowSelectionInterval(stationTable.getRowCount() - 1, stationTable.getRowCount() - 1);
+        });
+
+        return stationpanel;
     }
 }

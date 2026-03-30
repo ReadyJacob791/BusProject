@@ -10,8 +10,7 @@ public class BusStationClass {
 
     }
 
-    public BusStationClass(int key, String name, double latitude, double longitude) {
-        this.Key = key;
+    public BusStationClass(String name, double latitude, double longitude) {
         this.name = name;
         this.latitude = latitude;
         this.longitude = longitude;
@@ -50,9 +49,10 @@ public class BusStationClass {
         return abreviation;
     }
 
-    public void displayInfo() {
-        System.out.println("Name: " + name);
-        System.out.println("Latitude: " + latitude);
-        System.out.println("Longitude: " + longitude);
+    public String displayStationInfo() {
+        String info = name + ", "
+                + latitude + ", "
+                + longitude;
+        return info;
     }
 }
