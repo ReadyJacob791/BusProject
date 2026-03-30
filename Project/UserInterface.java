@@ -179,7 +179,6 @@ public class UserInterface {
     }
 
     // Add / Edit / remove Bus page
-    // Add / Edit / remove Bus page
     private JPanel manageBus() {
         JPanel buspanel = new JPanel(new BorderLayout());
 
@@ -330,25 +329,85 @@ public class UserInterface {
             }
 
         });
-        // Submit Button
+
         submitBus.addActionListener(e -> {
-            if (selectedRow != -1) {
-                bManager.busList.get(selectedRow).setMake(makeBox.getText());
-                bManager.busList.get(selectedRow).setModel(modelBox.getText());
-                bManager.busList.get(selectedRow).setType(typeBox.getText());
-                bManager.busList.get(selectedRow).setCruiseSpeed(Double.valueOf(cruiseSpeedBox.getText()));
-                bManager.busList.get(selectedRow).setFuelBurnRate(Double.valueOf(fuelBurnRateBox.getText()));
-                bManager.busList.get(selectedRow).setFuelCapacity(Double.valueOf(fuelCapacityBox.getText()));
-                busTable.setValueAt(makeBox.getText(), selectedRow, 0);
-                busTable.setValueAt(modelBox.getText(), selectedRow, 1);
-                busTable.setValueAt(typeBox.getText(), selectedRow, 2);
-                busTable.setValueAt(cruiseSpeedBox.getText(), selectedRow, 3);
-                busTable.setValueAt(fuelBurnRateBox.getText(), selectedRow, 4);
-                busTable.setValueAt(fuelCapacityBox.getText(), selectedRow, 5);
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(frame, "Please select a bus first.");
+                return;
+            }
+
+            StringBuilder errorLog = new StringBuilder();
+            boolean isValid = true;
+
+            // --- 1. STRICT STRING VALIDATION (No symbols allowed) ---
+            String makeVal = makeBox.getText().trim();
+            String modelVal = modelBox.getText().trim();
+            String typeVal = typeBox.getText().trim();
+
+            // Regex: Only letters, numbers, and spaces. No !@#$%^&*() or 'f' suffixes here.
+            String alphaNumRegex = "^[a-zA-Z0-9 ]+$";
+
+            if (!makeVal.matches(alphaNumRegex)) {
+                errorLog.append("- 'Make' has invalid symbols or is empty.\n");
+                isValid = false;
+            }
+            if (!modelVal.matches(alphaNumRegex)) {
+                errorLog.append("- 'Model' has invalid symbols or is empty.\n");
+                isValid = false;
+            }
+            if (!typeVal.matches(alphaNumRegex)) {
+                errorLog.append("- 'Type' has invalid symbols or is empty.\n");
+                isValid = false;
+            }
+
+            // --- 2. STRICT DOUBLE VALIDATION (Digits and decimal ONLY) ---
+            // This Regex ensures NO letters (like 'f') can get through.
+            // ^[0-9]*\\.?[0-9]+$ means: optional digits, optional dot, required digits.
+            String numericRegex = "^[0-9]*\\.?[0-9]+$";
+
+            String speedTxt = cruiseSpeedBox.getText().trim();
+            String burnTxt = fuelBurnRateBox.getText().trim();
+            String capTxt = fuelCapacityBox.getText().trim();
+
+            if (!speedTxt.matches(numericRegex)) {
+                errorLog.append("- 'Cruise Speed' must be a pure number (no letters/symbols).\n");
+                isValid = false;
+            }
+            if (!burnTxt.matches(numericRegex)) {
+                errorLog.append("- 'Fuel Burn Rate' must be a pure number (no letters/symbols).\n");
+                isValid = false;
+            }
+            if (!capTxt.matches(numericRegex)) {
+                errorLog.append("- 'Fuel Capacity' must be a pure number (no letters/symbols).\n");
+                isValid = false;
+            }
+
+            // --- 3. FINAL EXECUTION ---
+            if (!isValid) {
+                JOptionPane.showMessageDialog(frame, errorLog.toString(), "Input Errors", JOptionPane.ERROR_MESSAGE);
+            } else {
+                // Now that we KNOW they are pure numbers, parsing is safe
+                BusClass currentBus = bManager.busList.get(selectedRow);
+                currentBus.setMake(makeVal);
+                currentBus.setModel(modelVal);
+                currentBus.setType(typeVal);
+                currentBus.setCruiseSpeed(Double.parseDouble(speedTxt));
+                currentBus.setFuelBurnRate(Double.parseDouble(burnTxt));
+                currentBus.setFuelCapacity(Double.parseDouble(capTxt));
+
+                // Update Table
+                busTable.setValueAt(makeVal, selectedRow, 0);
+                busTable.setValueAt(modelVal, selectedRow, 1);
+                busTable.setValueAt(typeVal, selectedRow, 2);
+                busTable.setValueAt(speedTxt, selectedRow, 3);
+                busTable.setValueAt(burnTxt, selectedRow, 4);
+                busTable.setValueAt(capTxt, selectedRow, 5);
+
                 try {
                     bManager.save();
-                } catch (IOException e1) {
-                    e1.printStackTrace();
+                    JOptionPane.showMessageDialog(frame, "Changes Saved!");
+                } catch (IOException ex) {
+                    ex.printStackTrace();
                 }
             }
         });
