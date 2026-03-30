@@ -1,43 +1,29 @@
 package Project.Route;
 
-import Project.BusStation.BusStationClass;
-
 public class Edge {
-    double weight;
-    BusStationClass from;
-    BusStationClass to;
+    private double weight;
+    private Node from;
+    private Node to;
 
-    public Edge() {
-
-    }
-
-    public Edge(BusStationClass from, BusStationClass to) {
-        this.weight = (from.getLatitude() - to.getLatitude()) + (from.getLongitude() - to.getLongitude());
+    public Edge(Node from, Node to) {
         this.from = from;
         this.to = to;
+
+        // Euclidean Distance calculation
+        double latDiff = from.getStation().getLatitude() - to.getStation().getLatitude();
+        double lonDiff = from.getStation().getLongitude() - to.getStation().getLongitude();
+        this.weight = Math.sqrt((latDiff * latDiff) + (lonDiff * lonDiff));
     }
 
     public double getWeight() {
         return weight;
     }
 
-    public void setWeight(double weight) {
-        this.weight = weight;
-    }
-
-    public BusStationClass getFrom() {
+    public Node getFrom() {
         return from;
     }
 
-    public void setFrom(BusStationClass from) {
-        this.from = from;
-    }
-
-    public BusStationClass getTo() {
+    public Node getTo() {
         return to;
-    }
-
-    public void setTo(BusStationClass to) {
-        this.to = to;
     }
 }
