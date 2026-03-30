@@ -6,7 +6,9 @@ import Project.BusStation.BusStationClass;
 import Project.BusStation.BusStationManager;
 
 import java.awt.*;
+import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -144,35 +146,65 @@ public class UserInterface {
 
     // current account dialog
     private void showAddAccountDialog() {
+    JDialog dialog = new JDialog(frame, "Create New Account", true);
+    dialog.setLayout(new GridBagLayout());
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(5, 5, 5, 5);
+    gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JDialog dialog = new JDialog(frame, "Create New Account", true);
-        dialog.setLayout(new FlowLayout());
+    JTextField newUsernameField = new JTextField(15);
+    JPasswordField newPasswordField = new JPasswordField(15);
+    JPasswordField verifyPasswordField = new JPasswordField(15);
+    JButton submitBtn = new JButton("Submit");
 
-        // dialog box for new usernmae
-        dialog.add(new JLabel("New Username:"));
-        dialog.add(new JTextField(12));
+    gbc.gridx = 0; gbc.gridy = 0;
+    dialog.add(new JLabel("New Username:"), gbc); 
+    gbc.gridx = 1;
+    dialog.add(newUsernameField, gbc);
 
-        // dialog box for a new password
-        dialog.add(new JLabel("New Password:"));
-        dialog.add(new JTextField(12));
+    gbc.gridx = 0; gbc.gridy = 1;
+    dialog.add(new JLabel("New Password:"), gbc);
+    gbc.gridx = 1;
+    dialog.add(newPasswordField, gbc);
 
-        // dialog box for verifying the new password is the same
-        dialog.add(new JLabel("Verify Password:"));
-        dialog.add(new JTextField(12));
+    gbc.gridx = 0; gbc.gridy = 2;
+    dialog.add(new JLabel("Verify Password:"), gbc);
+    gbc.gridx = 1;
+    dialog.add(verifyPasswordField, gbc);
 
-        JButton submitBtn = new JButton("Submit");
-        submitBtn.addActionListener(e -> {
-            JOptionPane.showMessageDialog(dialog, "Account stored successfully!");
-            dialog.dispose(); // Closes the dialog and returns to the login screen
-        });
+    gbc.gridx = 0; gbc.gridy = 3;
+    gbc.gridwidth = 2;
+    submitBtn.addActionListener(e -> {
+        String username = newUsernameField.getText();
+        String password = new String(newPasswordField.getPassword());
+        String verify = new String(verifyPasswordField.getPassword());
 
-        dialog.add(submitBtn);
-        dialog.setSize(300, 150);
-        dialog.setLocationRelativeTo(frame);
-        dialog.setVisible(true); // Halts execution here until dialog is disposed
-    }
+        if (username.isEmpty() || password.isEmpty()) { 
+            JOptionPane.showMessageDialog(dialog, "Fields cannot be empty! Please try again.", "Error", JOptionPane.ERROR_MESSAGE); 
+        } else if (!password.equals(verify)) { 
+            JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error", JOptionPane.ERROR_MESSAGE); 
+        } else { 
+            // stores account info into csv file 'Accounts.csv'
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter("Accounts.csv", true))) {
 
-    // Route Manager Page
+                writer.write(username + ", " + password);
+                writer.newLine();
+                
+                JOptionPane.showMessageDialog(dialog, "The account '" + username + "' was stored successfully!");
+                dialog.dispose();
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(dialog, "Error writing to file: " + ex.getMessage(), "File Error", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        }
+    });
+
+    dialog.add(submitBtn, gbc);
+    dialog.pack();
+    dialog.setLocationRelativeTo(frame);
+    dialog.setVisible(true);
+}
+
     private JPanel dashboardPanel() {
         dashboardPanel = new JPanel(new BorderLayout());
         String[] dropdownOptions = { "Choose Option", "Manage Bus" };
