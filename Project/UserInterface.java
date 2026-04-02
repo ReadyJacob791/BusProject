@@ -1,15 +1,16 @@
 package Project;
 
-import java.awt.*;
-import java.io.*;
-import java.util.ArrayList;
-
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-
 import Project.Bus.*;
 import Project.BusStation.*;
 import Project.Route.*;
+import java.awt.*;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 
 public class UserInterface {
 
@@ -147,11 +148,46 @@ public class UserInterface {
         btnPanel.add(loginBtn);
         btnPanel.add(addAccountBtn);
         loginPanel.add(btnPanel, gbc);
-
+        
+        
         loginBtn.addActionListener(e -> {
-            cardLayout.show(cardPanel, "ROUTEPLANNER");
-            frame.setJMenuBar(createMenuBar());
-            frame.revalidate();
+            String username = userField.getText().trim();
+            String password = new String(passField.getPassword());
+
+            // input validation 
+            if (username.length() >= 1 && username.length() < 3) { // if the length of the username and password is less than reqiured
+                JOptionPane.showMessageDialog(frame, "Username must be at least 3 characters long!", "Validation Error", JOptionPane.ERROR_MESSAGE);
+
+            }
+            else if (password.length() > 1 && password.length() < 5) {
+                JOptionPane.showMessageDialog(frame, "Password must be at least 5 characters long!", "Validation Error", JOptionPane.ERROR_MESSAGE);
+
+            } 
+
+            // does user exist? 
+            String storedHash = getStoredPasswordHash(username); 
+
+            if (storedHash == null) {
+                JOptionPane.showMessageDialog(frame, "User not found, please create an account first!", "Account Required", JOptionPane.ERROR_MESSAGE);
+                return; 
+            }
+
+            // verify password
+            String inputHash = hashPassword(password);
+
+            if (inputHash.equals(storedHash)) {
+                cardLayout.show(cardPanel, "ROUTEPLANNER");
+                frame.setJMenuBar(createMenuBar());
+                frame.revalidate();
+                
+                // set username and password field empty when user logs out
+                userField.setText(""); 
+                passField.setText("");
+            } 
+            
+            else {
+                JOptionPane.showMessageDialog(frame, "Incorrect password! Please try again.", "Error", JOptionPane.ERROR);
+            }
         });
 
         addAccountBtn.addActionListener(e -> {
@@ -200,21 +236,36 @@ public class UserInterface {
             String verify = new String(verifyPasswordField.getPassword());
 
             if (username.isEmpty() || password.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Fields cannot be empty! Please try again.", "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Fields cannot be empty! Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+
             } else if (!password.equals(verify)) {
-                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error",
-                        JOptionPane.ERROR_MESSAGE);
-            } else {
+                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+
+            } else if (username.length() >= 1 && username.length() < 3) {
+                JOptionPane.showMessageDialog(dialog, "Username must be at least 3 characters long!", "Error", JOptionPane.ERROR_MESSAGE);
+
+            } else if (password.length() >= 1 && password.length() < 5) {
+                JOptionPane.showMessageDialog(dialog, "Password must be at least 5 characters long!", "Error", JOptionPane.ERROR_MESSAGE);
+
+            } else if (!password.equals(verify)) {
+                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+
+            } else if (getStoredPasswordHash(username) != null) {
+                JOptionPane.showMessageDialog(dialog, "Username already exists! Please enter a different username.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+            
+            else {
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter("Accounts.csv", true))) {
-                    writer.write(username + ", " + password);
+                    // write the hash of the password (SHA-256)
+                    String securePassword = hashPassword(password);
+                    writer.write(username + ", " + securePassword);
                     writer.newLine();
 
                     JOptionPane.showMessageDialog(dialog, "The account '" + username + "' was stored successfully!");
                     dialog.dispose();
+
                 } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(dialog, "Error writing to file: " + ex.getMessage(), "File Error",
-                            JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(dialog, "Error writing to file: " + ex.getMessage(), "File Error", JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
                 }
             }
@@ -224,6 +275,42 @@ public class UserInterface {
         dialog.pack();
         dialog.setLocationRelativeTo(frame);
         dialog.setVisible(true);
+    }
+
+    // Hashes a plain text password using SHA-256
+    private String hashPassword(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Hashing algorithm SHA-256 not found", e);
+        }
+    }
+
+    // Checks if username exists. If yes, returns the stored hashed password.
+    private String getStoredPasswordHash(String username) {
+        File file = new File("Accounts.csv");
+        if (!file.exists()) return null;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(", ");
+                if (parts.length >= 2 && parts[0].equalsIgnoreCase(username.trim())) {
+                    return parts[1]; // Return the stored hash
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     private JPanel routePanel() {
