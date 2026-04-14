@@ -5,15 +5,18 @@ package Project.Bus;
 public class BusClass {
     String make = "make";
     String model = "model";
-    String type = "type";
+    String type = "CityBus";
+    String fuelType = "Gas";
     double fuelCapacity = 0.0;
     double cruiseSpeed = 0.0;
     double fuelBurnRate = 0.0;
 
-    BusClass(String make, String model, String type, double fuelCapacity, double fuelBurnRate, double cruiseSpeed) {
+    BusClass(String make, String model, String type, String fuelType,
+            double fuelCapacity, double fuelBurnRate, double cruiseSpeed) {
         this.make = make;
         this.model = model;
         this.type = type;
+        this.fuelType = fuelType;
         this.fuelCapacity = fuelCapacity;
         this.fuelBurnRate = fuelBurnRate;
         this.cruiseSpeed = cruiseSpeed;
@@ -46,6 +49,14 @@ public class BusClass {
         this.type = type;
     }
 
+    public String getFuelType() {
+        return fuelType;
+    }
+
+    public void setFuelType(String fuelType) {
+        this.fuelType = fuelType;
+    }
+
     public double getFuelCapacity() {
         return fuelCapacity;
     }
@@ -74,6 +85,7 @@ public class BusClass {
         String info = make + ", "
                 + model + ", "
                 + type + ", "
+                + fuelType + ", "
                 + fuelCapacity + ", "
                 + fuelBurnRate + ", "
                 + cruiseSpeed;

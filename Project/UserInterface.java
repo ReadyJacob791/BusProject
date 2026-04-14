@@ -30,6 +30,7 @@ public class UserInterface {
     private WeightedGraph routeGraph;
     private RoutePlanner routePlanner;
 
+    JComboBox<String> busDropdown = new JComboBox<>();
     private int selectedRow = -1;
 
     public UserInterface() {
@@ -48,7 +49,7 @@ public class UserInterface {
 
     public static void main(String[] args) {
         JOptionPane.showMessageDialog(null,
-                "System Warning: Unauthorized access is prohibited. Click OK to proceed.",
+                "System Warning: Unauthorized use is prohibited. Click OK to proceed.",
                 "Security Alert",
                 JOptionPane.WARNING_MESSAGE);
         new UserInterface().initialize();
@@ -88,6 +89,14 @@ public class UserInterface {
 
         routePlanner.addActionListener(e -> {
             cardLayout.show(cardPanel, "ROUTEPLANNER");
+
+            // Refresh the dropdown to get the updated list of buses
+            busDropdown.removeAllItems();
+            for (Object bObj : bManager.busList) {
+                BusClass b = (BusClass) bObj;
+                busDropdown.addItem(b.getMake() + " " + b.getModel());
+            }
+
             frame.revalidate();
             selectedRow = -1;
         });
@@ -148,49 +157,49 @@ public class UserInterface {
         btnPanel.add(loginBtn);
         btnPanel.add(addAccountBtn);
         loginPanel.add(btnPanel, gbc);
-        
-        
+
         loginBtn.addActionListener(e -> {
             String username = userField.getText().trim();
             String password = new String(passField.getPassword());
 
-            // input validation 
-            if (username.length() >= 1 && username.length() < 3) { // if the length of the username and password is less than reqiured
-                JOptionPane.showMessageDialog(frame, "Username must be at least 3 characters long!", "Validation Error", JOptionPane.ERROR_MESSAGE);
-
+            // Input validation - added 'return' to stop execution if invalid
+            if (username.length() < 3) {
+                JOptionPane.showMessageDialog(frame, "Username must be at least 3 characters long!", "Validation Error",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
             }
-            else if (password.length() > 1 && password.length() < 5) {
-                JOptionPane.showMessageDialog(frame, "Password must be at least 5 characters long!", "Validation Error", JOptionPane.ERROR_MESSAGE);
 
-            } 
+            if (password.length() < 5) {
+                JOptionPane.showMessageDialog(frame, "Password must be at least 5 characters long!", "Validation Error",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
-            // does user exist? 
-            String storedHash = getStoredPasswordHash(username); 
-
+            // Check if user exists
+            String storedHash = getStoredPasswordHash(username);
             if (storedHash == null) {
-                JOptionPane.showMessageDialog(frame, "User not found, please create an account first!", "Account Required", JOptionPane.ERROR_MESSAGE);
-                return; 
+                JOptionPane.showMessageDialog(frame, "User not found, please create an account first!",
+                        "Account Required", JOptionPane.ERROR_MESSAGE);
+                return;
             }
 
-            // verify password
+            // Verify password
             String inputHash = hashPassword(password);
-
             if (inputHash.equals(storedHash)) {
                 cardLayout.show(cardPanel, "ROUTEPLANNER");
                 frame.setJMenuBar(createMenuBar());
                 frame.revalidate();
-                
-                // set username and password field empty when user logs out
-                userField.setText(""); 
+                userField.setText("");
                 passField.setText("");
-            } 
-            
-            else {
-                JOptionPane.showMessageDialog(frame, "Incorrect password! Please try again.", "Error", JOptionPane.ERROR);
+            } else {
+                JOptionPane.showMessageDialog(frame, "Incorrect password! Please try again.", "Error",
+                        JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        addAccountBtn.addActionListener(e -> {
+        addAccountBtn.addActionListener(e ->
+
+        {
             showAddAccountDialog();
         });
 
@@ -236,24 +245,30 @@ public class UserInterface {
             String verify = new String(verifyPasswordField.getPassword());
 
             if (username.isEmpty() || password.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Fields cannot be empty! Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Fields cannot be empty! Please try again.", "Error",
+                        JOptionPane.ERROR_MESSAGE);
 
             } else if (!password.equals(verify)) {
-                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error",
+                        JOptionPane.ERROR_MESSAGE);
 
             } else if (username.length() >= 1 && username.length() < 3) {
-                JOptionPane.showMessageDialog(dialog, "Username must be at least 3 characters long!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Username must be at least 3 characters long!", "Error",
+                        JOptionPane.ERROR_MESSAGE);
 
             } else if (password.length() >= 1 && password.length() < 5) {
-                JOptionPane.showMessageDialog(dialog, "Password must be at least 5 characters long!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Password must be at least 5 characters long!", "Error",
+                        JOptionPane.ERROR_MESSAGE);
 
             } else if (!password.equals(verify)) {
-                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error",
+                        JOptionPane.ERROR_MESSAGE);
 
             } else if (getStoredPasswordHash(username) != null) {
-                JOptionPane.showMessageDialog(dialog, "Username already exists! Please enter a different username.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Username already exists! Please enter a different username.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             }
-            
+
             else {
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter("Accounts.csv", true))) {
                     // write the hash of the password (SHA-256)
@@ -265,7 +280,8 @@ public class UserInterface {
                     dialog.dispose();
 
                 } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(dialog, "Error writing to file: " + ex.getMessage(), "File Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(dialog, "Error writing to file: " + ex.getMessage(), "File Error",
+                            JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
                 }
             }
@@ -285,7 +301,8 @@ public class UserInterface {
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1)
+                    hexString.append('0');
                 hexString.append(hex);
             }
             return hexString.toString();
@@ -297,7 +314,8 @@ public class UserInterface {
     // Checks if username exists. If yes, returns the stored hashed password.
     private String getStoredPasswordHash(String username) {
         File file = new File("Accounts.csv");
-        if (!file.exists()) return null;
+        if (!file.exists())
+            return null;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
@@ -336,7 +354,6 @@ public class UserInterface {
         busLabel.setFont(boldFont);
         busLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JComboBox<String> busDropdown = new JComboBox<>();
         busDropdown.setFont(largeFont);
         busDropdown.setMaximumSize(new Dimension(400, 40));
         for (Object bObj : bManager.busList) {
@@ -517,7 +534,7 @@ public class UserInterface {
             routeGraph.addEdge(n1, n2);
             routeGraph.appendEdgeToCSV(fromName, toName, "Project/Route/WeigthedGraph.csv");
             JOptionPane.showMessageDialog(frame,
-                    "Edge created between " + fromName + " and " + toName + " and saved to file!");
+                    "Road connected between " + fromName + " and " + toName + " and saved!");
         });
 
         backBtn.addActionListener(e -> leftLayout.show(leftCardPanel, "CONTROLS"));
@@ -575,13 +592,14 @@ public class UserInterface {
 
             boolean canComplete = (fuelRequired <= capacity) && (speed > 0);
 
+            // Change "units" to "miles" and add the required fuel/time metrics
             StringBuilder sb = new StringBuilder();
-            sb.append("Total Distance: ").append(String.format("%.2f", totalDistance)).append(" units\n");
+            sb.append("Total Distance: ").append(String.format("%.2f", totalDistance)).append(" miles\n");
             sb.append("Bus Selected: ").append(selectedBus.getMake()).append(" ").append(selectedBus.getModel())
                     .append("\n");
-            sb.append("Est. Fuel Consumption: ").append(String.format("%.2f", fuelRequired))
-                    .append(" / ").append(String.format("%.2f", capacity)).append(" max capacity\n\n");
-
+            sb.append("Est. Trip Time: ").append(String.format("%.2f", timeRequired)).append(" hours\n");
+            sb.append("Est. Fuel Required: ").append(String.format("%.2f", fuelRequired)).append(" gallons\n");
+            sb.append("Fuel Capacity: ").append(String.format("%.2f", capacity)).append(" gallons\n\n");
             if (canComplete) {
                 sb.append("✅ STATUS: ROUTE APPROVED (Fuel Sufficient)\n");
             } else {
@@ -611,7 +629,8 @@ public class UserInterface {
         Font inputFont = new Font("SansSerif", Font.PLAIN, 18);
         Font tableFont = new Font("SansSerif", Font.PLAIN, 16);
 
-        String tablename[] = { "Make", "Model", "Type", "Fuel Capacity", "Fuel Burn Rate", "Cruise Speed" };
+        String tablename[] = { "Make", "Model", "Type", "Fuel Type", "Fuel Capacity", "Fuel Burn Rate",
+                "Cruise Speed" };
         DefaultTableModel busTable = new DefaultTableModel(tablename, 0);
         JTable table = new JTable(busTable);
 
@@ -624,7 +643,8 @@ public class UserInterface {
         for (Object b : bManager.busList) {
             String s = ((BusClass) b).displayBusInfo();
             String[] col = s.split(", ");
-            busTable.addRow(new Object[] { col[0], col[1], col[2], col[3], col[4], col[5] });
+            // Make sure you include col[6] at the end!
+            busTable.addRow(new Object[] { col[0], col[1], col[2], col[3], col[4], col[5], col[6] });
         }
 
         buspanel.add(pane, BorderLayout.CENTER);
@@ -632,66 +652,43 @@ public class UserInterface {
         JPanel busWrapper = new JPanel();
         busWrapper.setLayout(new BoxLayout(busWrapper, BoxLayout.Y_AXIS));
         busWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
         Dimension boxSize = new Dimension(800, 40);
 
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
 
-        JLabel make = new JLabel("Make:");
-        make.setFont(labelFont);
         JTextField makeBox = new JTextField(15);
-        makeBox.setFont(inputFont);
-        makeBox.setMaximumSize(boxSize);
-        inputPanel.add(make);
-        inputPanel.add(makeBox);
-        inputPanel.add(Box.createVerticalStrut(10));
-
-        JLabel model = new JLabel("Model:");
-        model.setFont(labelFont);
         JTextField modelBox = new JTextField(15);
-        modelBox.setFont(inputFont);
-        modelBox.setMaximumSize(boxSize);
-        inputPanel.add(model);
-        inputPanel.add(modelBox);
-        inputPanel.add(Box.createVerticalStrut(10));
 
-        JLabel type = new JLabel("Type:");
-        type.setFont(labelFont);
-        JTextField typeBox = new JTextField(15);
+        JComboBox<String> typeBox = new JComboBox<>(new String[] { "CityBus", "LongDistanceBus" });
         typeBox.setFont(inputFont);
         typeBox.setMaximumSize(boxSize);
-        inputPanel.add(type);
-        inputPanel.add(typeBox);
-        inputPanel.add(Box.createVerticalStrut(10));
 
-        JLabel cruiseSpeed = new JLabel("Cruise Speed:");
-        cruiseSpeed.setFont(labelFont);
+        JComboBox<String> fuelTypeBox = new JComboBox<>(new String[] { "Gas", "Diesel" });
+        fuelTypeBox.setFont(inputFont);
+        fuelTypeBox.setMaximumSize(boxSize);
+
         JTextField cruiseSpeedBox = new JTextField(15);
-        cruiseSpeedBox.setFont(inputFont);
-        cruiseSpeedBox.setMaximumSize(boxSize);
-        inputPanel.add(cruiseSpeed);
-        inputPanel.add(cruiseSpeedBox);
-        inputPanel.add(Box.createVerticalStrut(10));
-
-        JLabel fuelBurnRate = new JLabel("Fuel Burn Rate:");
-        fuelBurnRate.setFont(labelFont);
         JTextField fuelBurnRateBox = new JTextField(15);
-        fuelBurnRateBox.setFont(inputFont);
-        fuelBurnRateBox.setMaximumSize(boxSize);
-        inputPanel.add(fuelBurnRate);
-        inputPanel.add(fuelBurnRateBox);
+        JTextField fuelCapacityBox = new JTextField(15);
+
+        // Helper to add components to inputPanel
+        autoAdd(inputPanel, new JLabel("Make:"), makeBox, labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Model:"), modelBox, labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Type:"), typeBox, labelFont, boxSize);
+
+        // Added between Type and Fuel Capacity
+        inputPanel.add(new JLabel("Fuel Type:") {
+            {
+                setFont(labelFont);
+            }
+        });
+        inputPanel.add(fuelTypeBox);
         inputPanel.add(Box.createVerticalStrut(10));
 
-        JLabel fuelCapacity = new JLabel("Fuel Capacity:");
-        fuelCapacity.setFont(labelFont);
-        JTextField fuelCapacityBox = new JTextField(15);
-        fuelCapacityBox.setFont(inputFont);
-        fuelCapacityBox.setMaximumSize(boxSize);
-        inputPanel.add(fuelCapacity);
-        inputPanel.add(fuelCapacityBox);
-
-        inputPanel.add(Box.createVerticalGlue());
+        autoAdd(inputPanel, new JLabel("Fuel Capacity:"), fuelCapacityBox, labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Fuel Burn Rate:"), fuelBurnRateBox, labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Cruise Speed:"), cruiseSpeedBox, labelFont, boxSize);
 
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new FlowLayout());
@@ -717,19 +714,13 @@ public class UserInterface {
             if (!e.getValueIsAdjusting()) {
                 selectedRow = table.getSelectedRow();
                 if (selectedRow != -1) {
-                    makeBox.setText(bManager.busList.get(selectedRow).getMake());
-                    modelBox.setText(bManager.busList.get(selectedRow).getModel());
-                    typeBox.setText(bManager.busList.get(selectedRow).getType());
-                    cruiseSpeedBox.setText(String.valueOf(bManager.busList.get(selectedRow).getCruiseSpeed()));
-                    fuelBurnRateBox.setText(String.valueOf(bManager.busList.get(selectedRow).getFuelBurnRate()));
-                    fuelCapacityBox.setText(String.valueOf(bManager.busList.get(selectedRow).getFuelCapacity()));
-                } else {
-                    makeBox.setText("");
-                    modelBox.setText("");
-                    typeBox.setText("");
-                    cruiseSpeedBox.setText("");
-                    fuelBurnRateBox.setText("");
-                    fuelCapacityBox.setText("");
+                    BusClass selected = (BusClass) bManager.busList.get(selectedRow);
+                    makeBox.setText(selected.getMake());
+                    modelBox.setText(selected.getModel());
+                    typeBox.setSelectedItem(selected.getType());
+                    cruiseSpeedBox.setText(String.valueOf(selected.getCruiseSpeed()));
+                    fuelBurnRateBox.setText(String.valueOf(selected.getFuelBurnRate()));
+                    fuelCapacityBox.setText(String.valueOf(selected.getFuelCapacity()));
                 }
             }
         });
@@ -745,7 +736,8 @@ public class UserInterface {
 
             String makeVal = makeBox.getText().trim();
             String modelVal = modelBox.getText().trim();
-            String typeVal = typeBox.getText().trim();
+            String typeVal = typeBox.getSelectedItem().toString();
+            String fuelTypeVal = fuelTypeBox.getSelectedItem().toString();
             String speedTxt = cruiseSpeedBox.getText().trim();
             String burnTxt = fuelBurnRateBox.getText().trim();
             String capTxt = fuelCapacityBox.getText().trim();
@@ -799,6 +791,7 @@ public class UserInterface {
                 currentBus.setMake(makeVal);
                 currentBus.setModel(modelVal);
                 currentBus.setType(typeVal);
+                currentBus.setFuelType(fuelTypeVal);
                 currentBus.setCruiseSpeed(Double.parseDouble(speedTxt));
                 currentBus.setFuelBurnRate(Double.parseDouble(burnTxt));
                 currentBus.setFuelCapacity(Double.parseDouble(capTxt));
@@ -806,9 +799,10 @@ public class UserInterface {
                 busTable.setValueAt(makeVal, selectedRow, 0);
                 busTable.setValueAt(modelVal, selectedRow, 1);
                 busTable.setValueAt(typeVal, selectedRow, 2);
-                busTable.setValueAt(capTxt, selectedRow, 3);
-                busTable.setValueAt(burnTxt, selectedRow, 4);
-                busTable.setValueAt(speedTxt, selectedRow, 5);
+                busTable.setValueAt(fuelTypeVal, selectedRow, 3);
+                busTable.setValueAt(capTxt, selectedRow, 4);
+                busTable.setValueAt(burnTxt, selectedRow, 5);
+                busTable.setValueAt(speedTxt, selectedRow, 6);
 
                 try {
                     bManager.save();
@@ -840,7 +834,7 @@ public class UserInterface {
                     BusClass existingBus = (BusClass) b;
                     if (existingBus.getMake().equalsIgnoreCase(finalMake)) {
                         duplicateFound = true;
-                        finalMake = baseMake + " (" + counter + ")";
+                        finalMake = baseMake + counter;
                         counter++;
                         break;
                     }
@@ -849,7 +843,7 @@ public class UserInterface {
 
             BusClass nb = new BusClass();
             nb.setMake(finalMake);
-            nb.setType("Standard");
+            nb.setType("CityBus");
             nb.setCruiseSpeed(0.0);
             nb.setFuelBurnRate(0.0);
             nb.setFuelCapacity(0.0);
@@ -869,13 +863,22 @@ public class UserInterface {
 
             makeBox.setText(nb.getMake());
             modelBox.setText(nb.getModel());
-            typeBox.setText(nb.getType());
+            typeBox.setToolTipText(nb.getType());
             cruiseSpeedBox.setText(String.valueOf(nb.getCruiseSpeed()));
             fuelBurnRateBox.setText(String.valueOf(nb.getFuelBurnRate()));
             fuelCapacityBox.setText(String.valueOf(nb.getFuelCapacity()));
         });
 
         return buspanel;
+    }
+
+    private void autoAdd(JPanel p, JLabel l, JComponent c, Font f, Dimension d) {
+        l.setFont(f);
+        c.setFont(new Font("SansSerif", Font.PLAIN, 18));
+        c.setMaximumSize(d);
+        p.add(l);
+        p.add(c);
+        p.add(Box.createVerticalStrut(10));
     }
 
     private JPanel manageBusStation() {

@@ -1,5 +1,3 @@
-Make, Model, Type, 50.5, 44.0, 150.4987
-Masdf, Mofdl, Type, 50.4, 44.0, 150.4
-Msoiweo, kjdjkbd, FFF, 0.0, 0.0, 0.0
-Masdf, Mofdl, Type, 50.4, 44.0, 150.4
-Maqwerke, Modqwerl, Type, 50.45, 44.6, 150.97
+make, model, type, fuelType, 0.0, 0.0, 0.0
+ma2, model3, LongDistanceBus, Diesel, 0.0, 0.0, 0.0
+Nem, model, type, Diesel, 0.0, 0.0, 0.0
