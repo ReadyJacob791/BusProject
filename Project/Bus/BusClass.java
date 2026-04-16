@@ -1,8 +1,9 @@
 package Project.Bus;
 
-// finally made it
-
+// this class is the basic bus class and is used as the shared attributes and methods of the city and long distance buses
 public class BusClass {
+
+    // This block is used to declare the Basic attributes of a bus
     String make = "make";
     String model = "model";
     String type = "CityBus";
@@ -11,7 +12,8 @@ public class BusClass {
     double cruiseSpeed = 0.0;
     double fuelBurnRate = 0.0;
 
-    BusClass(String make, String model, String type, String fuelType,
+    // This is the cunstructor for the BusClass
+    public BusClass(String make, String model, String type, String fuelType,
             double fuelCapacity, double fuelBurnRate, double cruiseSpeed) {
         this.make = make;
         this.model = model;
@@ -22,9 +24,23 @@ public class BusClass {
         this.cruiseSpeed = cruiseSpeed;
     }
 
+    // This is a blank constructor
     public BusClass() {
     }
 
+    // This funtion is to display the bus info in a string.
+    public String displayBusInfo() {
+        String info = make + ", "
+                + model + ", "
+                + type + ", "
+                + fuelType + ", "
+                + fuelCapacity + ", "
+                + fuelBurnRate + ", "
+                + cruiseSpeed;
+        return info;
+    }
+
+    // The bellow funtions are all geters and seters
     public String getMake() {
         return make;
     }
@@ -65,12 +81,12 @@ public class BusClass {
         this.fuelCapacity = fuelCapacity;
     }
 
-    public void setCruiseSpeed(double CruiseSpeed) {
-        this.cruiseSpeed = CruiseSpeed;
-    }
-
     public double getCruiseSpeed() {
         return cruiseSpeed;
+    }
+
+    public void setCruiseSpeed(double CruiseSpeed) {
+        this.cruiseSpeed = CruiseSpeed;
     }
 
     public double getFuelBurnRate() {
@@ -79,16 +95,5 @@ public class BusClass {
 
     public void setFuelBurnRate(double fuelBurnRate) {
         this.fuelBurnRate = fuelBurnRate;
-    }
-
-    public String displayBusInfo() {
-        String info = make + ", "
-                + model + ", "
-                + type + ", "
-                + fuelType + ", "
-                + fuelCapacity + ", "
-                + fuelBurnRate + ", "
-                + cruiseSpeed;
-        return info;
     }
 }

@@ -33,15 +33,22 @@ public class UserInterface {
     JComboBox<String> busDropdown = new JComboBox<>();
     private int selectedRow = -1;
 
+    // This Function used to call the different managers and planners into objects
     public UserInterface() {
         try {
+
+            // This is the bus manager
             bManager = new BusManager();
-            bManager.listBuses();
+
+            // This is the station manager
             sManager = new BusStationManager();
-            sManager.listStations();
+
+            // This is the weighted graph
             routeGraph = new WeightedGraph();
-            routeGraph.buildGraphFromCSV(sManager, "Project/Route/WeigthedGraph.csv");
+
+            // This is the route planner
             routePlanner = new RoutePlanner(routeGraph);
+
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -55,49 +62,77 @@ public class UserInterface {
         new UserInterface().initialize();
     }
 
+    // This class is used to initialize the different components and Build the UI
+    // interfaces
     public void initialize() {
+
+        // This puts the buses from the CSV into the active bus list
+        bManager.listBuses();
+
+        // This puts the station for the CSV into the active station list
+        sManager.listStations();
+
+        // This puts the Weighted graph from the CSV into the active weighted graph
+        routeGraph.buildGraphFromCSV(sManager, "Project/Route/WeigthedGraph.csv");
+
+        // This Block sets up the frame which every UI element is in
         frame = new JFrame("Route Planner");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         frame.setLocationRelativeTo(null);
 
+        // This block sets up the card layout which is used to show the different panels
         cardLayout = new CardLayout();
         cardPanel = new JPanel(cardLayout);
 
+        // This block initializes the different panels based of the functions
         cardPanel.add(logInPanel(), "LOGIN");
         cardPanel.add(routePanel(), "ROUTEPLANNER");
         cardPanel.add(manageBus(), "MANAGEBUS");
         cardPanel.add(manageBusStation(), "MANAGESTATION");
 
+        // This block adds the plannels into the frame and shows them to the user
         frame.add(cardPanel);
         frame.setVisible(true);
     }
 
+    // This funtion is to return the menu bar to allow the user to swich between the
+    // different pannels
     private JMenuBar createMenuBar() {
-        JMenuBar menuBar = new JMenuBar();
 
+        // This is the menu bar object to be returned
+        JMenuBar menuBar = new JMenuBar();
         JMenu menu = new JMenu("Menu");
+
+        // This is to declare the different pannels to be placed in the menu bar
         JMenuItem routePlanner = new JMenuItem("Route Planner");
         JMenuItem manageBus = new JMenuItem("Manage Bus");
         JMenuItem manageStation = new JMenuItem("Manage Station");
         JMenuItem logoutItem = new JMenuItem("Logout");
         JMenuItem exit = new JMenuItem("EXIT");
 
-        Font largeFont = new Font("Arial", Font.PLAIN, 18);
+        // This is the font for the menu bar
+        Font menuFont = new Font("Arial", Font.PLAIN, 18);
 
-        menu.setFont(largeFont);
-        routePlanner.setFont(largeFont);
-        manageBus.setFont(largeFont);
-        manageStation.setFont(largeFont);
-        logoutItem.setFont(largeFont);
-        exit.setFont(largeFont);
+        // This set the menu bar to the specified font
+        menu.setFont(menuFont);
+        routePlanner.setFont(menuFont);
+        manageBus.setFont(menuFont);
+        manageStation.setFont(menuFont);
+        logoutItem.setFont(menuFont);
+        exit.setFont(menuFont);
 
+        // This is what happens when exit is selected on the menu bar and will close the
+        // applicaiton.
         exit.addActionListener(e -> {
             frame.dispose();
         });
 
+        // This will switch the frame to the Route pannel when the menu option is
+        // selected.
         routePlanner.addActionListener(e -> {
+
+            // This line switches the active pannel in the frame
             cardLayout.show(cardPanel, "ROUTEPLANNER");
 
             // Refresh the dropdown to get the updated list of buses
@@ -107,34 +142,46 @@ public class UserInterface {
                 busDropdown.addItem(b.getMake() + " " + b.getModel());
             }
 
+            // This is to make the frame check which card it should be showing
             frame.revalidate();
+
+            // This is to change the selected row to a unused number to prevent acedents
             selectedRow = -1;
         });
 
+        // This will switch the frame to the Bus Manager pannel when the menu option is
+        // selected.
         manageBus.addActionListener(e -> {
             cardLayout.show(cardPanel, "MANAGEBUS");
             frame.revalidate();
             selectedRow = -1;
         });
 
+        // This will switch the frame to the Station manager pannel when the menu option
+        // is
+        // selected.
         manageStation.addActionListener(e -> {
             cardLayout.show(cardPanel, "MANAGESTATION");
             frame.revalidate();
             selectedRow = -1;
         });
 
+        // This will log out the user and take the user back to the log in screen
         logoutItem.addActionListener(e -> {
             frame.setJMenuBar(null);
             cardLayout.show(cardPanel, "LOGIN");
             frame.revalidate();
         });
 
+        // This is to add all the buttons into the menu bar
         menu.add(routePlanner);
         menu.add(manageBus);
         menu.add(manageStation);
         menu.add(logoutItem);
         menu.add(exit);
         menuBar.add(menu);
+
+        // This returns the menu bar
         return menuBar;
     }
 
@@ -341,6 +388,8 @@ public class UserInterface {
         return null;
     }
 
+    // This is the main route pannel and is used to add or remove connection of the
+    // graph or to plan a route and see if the route is possible.
     private JPanel routePanel() {
         JPanel routePan = new JPanel(new BorderLayout());
 
