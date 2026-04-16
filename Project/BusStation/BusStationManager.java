@@ -1,42 +1,40 @@
 package Project.BusStation;
 
 import java.util.ArrayList;
-import Project.Bus.BusClass;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.*;
 
 public class BusStationManager {
-    public ArrayList<BusStationClass> stationList = new ArrayList<BusStationClass>();
+    public ArrayList<BusStationClass> stationList = new ArrayList<>();
     static String fileName = "Project/BusStation/BusStation.csv";
     File file = new File(fileName);
-    String line;
-    String name = "";
-    double lat = 0;
-    double lon = 0;
 
     public BusStationManager() throws FileNotFoundException {
     }
 
     public void listStations() {
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(file));
+        stationList.clear();
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
             while ((line = br.readLine()) != null) {
-                line = line.replace("\"", "");
                 String[] columns = line.split(", ");
-                name = columns[0];
-                lat = Double.parseDouble(columns[1]);
-                lon = Double.parseDouble(columns[2]);
-                BusStationClass station = new BusStationClass(name, lat, lon);
-                stationList.add(station);
+                if (columns.length < 3)
+                    continue;
 
+                String name = columns[0].replace("\"", "");
+                double lat = Double.parseDouble(columns[1]);
+                double lon = Double.parseDouble(columns[2]);
+
+                boolean isRefuel = false;
+                if (columns.length >= 4) {
+                    isRefuel = Boolean.parseBoolean(columns[3]);
+                }
+
+                if (isRefuel) {
+                    stationList.add(new RefuelBusStation(name, lat, lon));
+                } else {
+                    stationList.add(new BusStationClass(name, lat, lon));
+                }
             }
-            br.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -45,8 +43,7 @@ public class BusStationManager {
     public void save() throws IOException {
         try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
             for (BusStationClass s : stationList) {
-                String line = s.displayStationInfo();
-                pw.println(line);
+                pw.println(s.displayStationInfo());
             }
         }
     }
@@ -60,7 +57,7 @@ public class BusStationManager {
                 e.printStackTrace();
             }
             return true;
-        } else
-            return false;
+        }
+        return false;
     }
 }

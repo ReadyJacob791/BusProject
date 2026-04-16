@@ -1,5 +1,6 @@
-Aiken, 150.5, 183.1
-Augusta, 160.0, 190.0
-California, 200.0, 220.0
-Texas, 180.0, 210.0
-New York, 190.0, 200.0
+Aiken, 150.5, 183.1, false
+Augusta, 160.0, 190.0, True
+California, 200.0, 220.0, True
+Texas, 180.0, 210.0, false
+New York, 190.0, 200.0, false
+Cool Station, 350.0, 240.0, false

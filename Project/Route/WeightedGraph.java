@@ -10,8 +10,9 @@ import java.io.IOException;
 public class WeightedGraph {
     public ArrayList<Node> vertices = new ArrayList<>();
 
-    public void addVertex(Node v) {
-        vertices.add(v);
+    public void addVertex(BusStationClass station) {
+
+        vertices.add(new Node(station));
     }
 
     // Creates an undirected (two-way) connection
@@ -37,7 +38,7 @@ public class WeightedGraph {
     public void buildGraphFromCSV(BusStationManager sManager, String csvPath) {
         // 1. Populate all vertices
         for (BusStationClass station : sManager.stationList) {
-            addVertex(new Node(station));
+            addVertex(station);
         }
 
         // 2. Read the CSV to build edges

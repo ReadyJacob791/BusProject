@@ -40,19 +40,11 @@ public class BusStationClass {
         this.longitude = longitude;
     }
 
-    public String getAbrevation() {
-        String[] splitName = name.split(" ");
-        String abreviation = "";
-        for (String word : splitName) {
-            abreviation += word.charAt(0);
-        }
-        return abreviation;
-    }
-
     public String displayStationInfo() {
         String info = name + ", "
                 + latitude + ", "
-                + longitude;
+                + longitude + ", "
+                + "false";
         return info;
     }
 }

@@ -1,3 +1,2 @@
-make, model, type, fuelType, 0.0, 0.0, 0.0
-ma2, model3, LongDistanceBus, Diesel, 0.0, 0.0, 0.0
+ma2, model3, LongDistanceBus, Gas, 10.0, 10.0, 20.0
 Nem, model, type, Diesel, 0.0, 0.0, 0.0

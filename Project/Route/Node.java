@@ -16,6 +16,10 @@ public class Node {
         return station;
     }
 
+    public void setStation(BusStationClass station) {
+        this.station = station;
+    }
+
     public ArrayList<Node> getNeighbors() {
         return neighbors;
     }
