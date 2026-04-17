@@ -98,7 +98,7 @@ public class UserInterface {
 
     // This funtion is to return the menu bar to allow the user to swich between the
     // different pannels
-    private JMenuBar createMenuBar() {
+    private JMenuBar createMenuBar(Account currentUser) {
 
         // This is the menu bar object to be returned
         JMenuBar menuBar = new JMenuBar();
@@ -121,6 +121,18 @@ public class UserInterface {
         manageStation.setFont(menuFont);
         logoutItem.setFont(menuFont);
         exit.setFont(menuFont);
+
+        // This will show all of the listed users using the software. 
+        // Only for ADMIN accounts only. 
+        if (currentUser.isAdmin()) {
+            JMenuItem seeAccounts = new JMenuItem("See All Accounts");
+            seeAccounts.setFont(menuFont);
+
+            seeAccounts.addActionListener(e -> showAllAccountsDialog());
+            menu.addSeparator(); 
+            menu.add(seeAccounts); 
+            menu.addSeparator();
+        }
 
         // This is what happens when exit is selected on the menu bar and will close the
         // applicaiton.
@@ -240,11 +252,15 @@ public class UserInterface {
                 return;
             }
 
-            // Verify password
+            // Verify password and role for user/admin
             String inputHash = hashPassword(password);
             if (inputHash.equals(storedHash)) {
+                String roleCSV = getRoleForUser(username); 
+                Account loggedInAccount = new Account(username, inputHash, roleCSV); 
+                frame.setJMenuBar(createMenuBar(loggedInAccount)); 
+
                 cardLayout.show(cardPanel, "ROUTEPLANNER");
-                frame.setJMenuBar(createMenuBar());
+                frame.setJMenuBar(createMenuBar(loggedInAccount));
                 frame.revalidate();
                 userField.setText("");
                 passField.setText("");
@@ -263,12 +279,114 @@ public class UserInterface {
         return loginPanel;
     }
 
+    private String getRoleForUser(String username) {
+        try (BufferedReader reader = new BufferedReader(new FileReader("Project\\Accounts.csv"))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            String[] parts = line.split(", ");
+            if (parts.length >= 3 && parts[0].equalsIgnoreCase(username)) {
+                return parts[2]; 
+            }
+        }
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+    return "USER";
+    }
+
+    private void showAllAccountsDialog() {
+    // 1. Create the dialog HERE so it's in scope for this method
+    JDialog managementDialog = new JDialog(frame, "Account Management", true);
+    managementDialog.setLayout(new BorderLayout(10, 10));
+
+    DefaultListModel<String> listModel = new DefaultListModel<>();
+    JList<String> accountList = new JList<>(listModel);
+    
+    // Call the refresh method and pass the model to it
+    refreshAccountList(listModel);
+
+    JButton removeBtn = new JButton("Remove Selected Account");
+    removeBtn.addActionListener(e -> {
+        String selected = accountList.getSelectedValue();
+        if (selected != null) {
+            String userToRemove = selected.split(" - ")[0];
+            performAccountRemoval(userToRemove);
+            refreshAccountList(listModel); // Refresh the list after deleting
+        }
+    });
+
+    managementDialog.add(new JScrollPane(accountList), BorderLayout.CENTER);
+    managementDialog.add(removeBtn, BorderLayout.SOUTH);
+
+    managementDialog.pack();
+    managementDialog.setSize(300, 400);
+    managementDialog.setLocationRelativeTo(frame);
+    managementDialog.setVisible(true);
+}
+
+private void performAccountRemoval(String targetUser) {
+    File originalFile = new File("Project\\Accounts.csv");
+    File tempFile = new File("Project\\Accounts_temp.csv");
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(originalFile));
+         BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
+
+        String line;
+        while ((line = reader.readLine()) != null) {
+            String[] parts = line.split(", ");
+            // Only write the line to the new file if it's NOT the target user
+            if (parts.length > 0 && !parts[0].equalsIgnoreCase(targetUser)) {
+                writer.write(line);
+                writer.newLine();
+            }
+        }
+    } catch (IOException ex) {
+        ex.printStackTrace();
+    }
+
+    // Delete the old file and rename the new one
+    if (originalFile.delete()) {
+        tempFile.renameTo(originalFile);
+    } else {
+        JOptionPane.showMessageDialog(frame, "Error updating the database file.");
+    }
+}
+
+    private void refreshAccountList(DefaultListModel<String> model) {
+    model.clear(); // Clear the old list before reloading
+    File file = new File("Project\\Accounts.csv");
+    
+    if (!file.exists()) return;
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            String[] parts = line.split(", ");
+            if (parts.length >= 3) {
+                // This updates the selectable JList in your dialog
+                model.addElement(parts[0].trim() + " - (" + parts[2].trim() + ")");
+            }
+        }
+    } catch (IOException e) {
+        System.out.println("Error refreshing list: " + e.getMessage());
+    }
+}
+
     private void showAddAccountDialog() {
+        
         JDialog dialog = new JDialog(frame, "Create New Account", true);
         dialog.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        String[] roles = {"USER", "ADMIN"}; 
+        JComboBox<String> roleComboBox = new JComboBox<>(roles);
+        gbc.gridx = 3; gbc.gridy = 0; 
+        dialog.add(new JLabel("Account Type"), gbc);
+        gbc.gridx = 4; 
+        dialog.add(roleComboBox, gbc);
+        gbc.gridy= 4; 
 
         JTextField newUsernameField = new JTextField(15);
         JPasswordField newPasswordField = new JPasswordField(15);
@@ -300,6 +418,7 @@ public class UserInterface {
             String username = newUsernameField.getText();
             String password = new String(newPasswordField.getPassword());
             String verify = new String(verifyPasswordField.getPassword());
+            String role = (String) roleComboBox.getSelectedItem();
 
             if (username.isEmpty() || password.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Fields cannot be empty! Please try again.", "Error",
@@ -330,7 +449,7 @@ public class UserInterface {
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter("Project\\Accounts.csv", true))) {
                     // write the hash of the password (SHA-256)
                     String securePassword = hashPassword(password);
-                    writer.write(username + ", " + securePassword);
+                    writer.write(username + ", " + securePassword + ", " + role);
                     writer.newLine();
 
                     JOptionPane.showMessageDialog(dialog, "The account '" + username + "' was stored successfully!");

@@ -9,7 +9,7 @@
             "name": "UserInterface",
             "request": "launch",
             "mainClass": "Project.UserInterface",
-            "projectName": "BusProject_63b10fca"
+            "projectName": ""
         },
         {
             "type": "java",
