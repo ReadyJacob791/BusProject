@@ -78,8 +78,8 @@ public class RoutePlanner {
     }
 
     private String getCompassDirection(double heading) {
-        String[] directions = {"N", "N@", "W", "SW", "S", "SE", "E", "NE", "N"};
-        // Divide the 360 degrees into 8 sectors of 45 degrees
-        return directions[(int) Math.round(((heading % 360) / 45))];
+        // Correct clockwise order: N (0), NE (45), E (90), SE (135), S (180), SW (225), W (270), NW (315)
+        String[] directions = {"N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"};
+        return directions[(int) Math.round((heading % 360) / 45)];
     }
 }
