@@ -33,9 +33,13 @@ public class UserInterface {
     JComboBox<String> busDropdown = new JComboBox<>();
     private int selectedRow = -1;
 
-    // This Function used to call the different managers and planners into objects
+    // This Function used to call the different managers and pannels into objects
     public UserInterface() {
         try {
+            routePanel();
+            logInPanel();
+            manageBus();
+            manageBusStation();
 
             // This is the bus manager
             bManager = new BusManager();
@@ -86,10 +90,10 @@ public class UserInterface {
         cardPanel = new JPanel(cardLayout);
 
         // This block initializes the different panels based of the functions
-        cardPanel.add(logInPanel(), "LOGIN");
-        cardPanel.add(routePanel(), "ROUTEPLANNER");
-        cardPanel.add(manageBus(), "MANAGEBUS");
-        cardPanel.add(manageBusStation(), "MANAGESTATION");
+        cardPanel.add(loginPanel, "LOGIN");
+        cardPanel.add(routePanel, "ROUTEPLANNER");
+        cardPanel.add(buspanel, "MANAGEBUS");
+        cardPanel.add(stationpanel, "MANAGESTATION");
 
         // This block adds the plannels into the frame and shows them to the user
         frame.add(cardPanel);
@@ -197,7 +201,7 @@ public class UserInterface {
         return menuBar;
     }
 
-    private JPanel logInPanel() {
+    private void logInPanel() {
         loginPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -275,8 +279,6 @@ public class UserInterface {
         {
             showAddAccountDialog();
         });
-
-        return loginPanel;
     }
 
     private String getRoleForUser(String username) {
@@ -509,8 +511,8 @@ private void performAccountRemoval(String targetUser) {
 
     // This is the main route pannel and is used to add or remove connection of the
     // graph or to plan a route and see if the route is possible.
-    private JPanel routePanel() {
-        JPanel routePan = new JPanel(new BorderLayout());
+    private void routePanel() {
+        routePanel = new JPanel(new BorderLayout());
 
         JPanel leftCardPanel = new JPanel(new CardLayout());
         CardLayout leftLayout = (CardLayout) leftCardPanel.getLayout();
@@ -645,8 +647,8 @@ private void performAccountRemoval(String targetUser) {
 
         GraphPanel centerPanel = new GraphPanel();
 
-        routePan.add(leftCardPanel, BorderLayout.WEST);
-        routePan.add(centerPanel, BorderLayout.CENTER);
+        routePanel.add(leftCardPanel, BorderLayout.WEST);
+        routePanel.add(centerPanel, BorderLayout.CENTER);
 
         addBtn.addActionListener(e -> {
             String selected = (String) addDropdown.getSelectedItem();
@@ -811,7 +813,6 @@ private void performAccountRemoval(String targetUser) {
             resultsTextArea.setText(sb.toString());
             leftLayout.show(leftCardPanel, "RESULTS");
         });
-        return routePan;
     }
 
     private class GraphPanel extends JPanel {
@@ -914,7 +915,7 @@ private void performAccountRemoval(String targetUser) {
         }
     }
 
-    private JPanel manageBus() {
+    private void manageBus() {
         JPanel buspanel = new JPanel(new BorderLayout());
 
         Font labelFont = new Font("SansSerif", Font.BOLD, 18);
@@ -923,7 +924,7 @@ private void performAccountRemoval(String targetUser) {
 
         String tablename[] = { "Make", "Model", "Type", "Fuel Type", "Fuel Capacity", "Fuel Burn Rate",
                 "Cruise Speed" };
-        DefaultTableModel busTable = new DefaultTableModel(tablename, 0);
+        busTable = new DefaultTableModel(tablename, 0);
         JTable table = new JTable(busTable);
 
         table.setFont(tableFont);
@@ -1161,8 +1162,6 @@ private void performAccountRemoval(String targetUser) {
             fuelBurnRateBox.setText(String.valueOf(nb.getFuelBurnRate()));
             fuelCapacityBox.setText(String.valueOf(nb.getFuelCapacity()));
         });
-
-        return buspanel;
     }
 
     private void autoAdd(JPanel p, JLabel l, JComponent c, Font f, Dimension d) {
@@ -1174,7 +1173,7 @@ private void performAccountRemoval(String targetUser) {
         p.add(Box.createVerticalStrut(10));
     }
 
-    private JPanel manageBusStation() {
+    private void manageBusStation() {
         JPanel stationpanel = new JPanel(new BorderLayout());
 
         Font labelFont = new Font("SansSerif", Font.BOLD, 18);
@@ -1391,6 +1390,5 @@ private void performAccountRemoval(String targetUser) {
             }
         });
 
-        return stationpanel;
     }
 }
