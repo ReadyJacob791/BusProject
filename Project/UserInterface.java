@@ -1,6 +1,9 @@
 package Project;
 
-//These are the imports
+/**
+ * These are the imports required for the UI, Data Management, 
+ * and Security features.
+ */
 import Project.Bus.*;
 import Project.BusStation.*;
 import Project.Route.*;
@@ -13,110 +16,132 @@ import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
+/**
+ * The UserInterface class serves as the main entry point for the GUI.
+ * It manages the different "pages" of the application using a CardLayout.
+ */
 public class UserInterface {
 
+    // --- GUI Components ---
     private JFrame frame;
-    private JPanel cardPanel;
-    private CardLayout cardLayout;
+    private JPanel cardPanel;       // The container that holds different screens
+    private CardLayout cardLayout; // The manager that swaps between screens
     private JPanel loginPanel;
     private JPanel routePanel;
     private JPanel buspanel;
     private JPanel stationpanel;
 
+    // --- Table Models for Data Display ---
     private DefaultTableModel busTable;
     private DefaultTableModel stationTable;
 
+    // --- Logic & Data Managers ---
     private BusManager bManager;
     private BusStationManager sManager;
     private WeightedGraph routeGraph;
     private RoutePlanner routePlanner;
 
+    // --- Interactive UI Elements ---
     JComboBox<String> busDropdown = new JComboBox<>();
     JComboBox<String> stationDropDown = new JComboBox<>();
-    private int selectedRow = -1;
+    private int selectedRow = -1; // Tracks which row is selected in tables
 
-    // This Function used to call the different managers and planners into objects
+    /**
+     * Constructor: Initializes the backend managers and data structures.
+     * It attempts to load the necessary data before the UI is built.
+     */
     public UserInterface() {
         try {
-
-            // This is the bus manager
+            // Instantiate the Bus management logic
             bManager = new BusManager();
 
-            // This is the station manager
+            // Instantiate the Station management logic
             sManager = new BusStationManager();
 
-            // This is the weighted graph
+            // Create the graph structure for the map/routes
             routeGraph = new WeightedGraph();
 
-            // This is the route planner
+            // Link the route planner to the graph
             routePlanner = new RoutePlanner(routeGraph);
 
         } catch (FileNotFoundException e) {
+            // Error handling if data files are missing
             e.printStackTrace();
         }
     }
 
+    /**
+     * Main method: The starting point of the Java application.
+     */
     public static void main(String[] args) {
+        // Show a security disclaimer before the app opens
         JOptionPane.showMessageDialog(null,
                 "System Warning: Unauthorized use is prohibited. Click OK to proceed.",
                 "Security Alert",
                 JOptionPane.WARNING_MESSAGE);
+        
+        // Launch the UI
         new UserInterface().initialize();
     }
 
-    // This class is used to initialize the different components and Build the UI
-    // interfaces
+    /**
+     * Initialize: Configures the JFrame, loads CSV data into memory, 
+     * and constructs the visual layout.
+     */
     public void initialize() {
 
-        // This puts the buses from the CSV into the active bus list
+        // Load data from external CSV files into the Manager lists
         bManager.listBuses();
-
-        // This puts the station for the CSV into the active station list
         sManager.listStations();
 
-        // This puts the Weighted graph from the CSV into the active weighted graph
-        routeGraph.buildGraphFromCSV(sManager, "Project/Route/WeigthedGraph.csv");
+        // Build the graph using the loaded stations and the connection CSV
+        // NOTE: Check the spelling of "WeigthedGraph.csv" (See Error list below)
+        routeGraph.buildGraphFromCSV(sManager, "Project/Route/WeightedGraph.csv");
 
-        // This Block sets up the frame which every UI element is in
+        // --- JFrame Setup ---
         frame = new JFrame("Route Planner");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        frame.setLocationRelativeTo(null);
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH); // Opens the app in full screen
+        frame.setLocationRelativeTo(null); // Centers the frame (though MAXIMIZED overrides this)
 
-        // This block sets up the card layout which is used to show the different panels
+        // --- CardLayout Setup ---
+        // CardLayout allows us to "stack" panels and show only one at a time
         cardLayout = new CardLayout();
         cardPanel = new JPanel(cardLayout);
 
-        // This block initializes the different panels based of the functions
+        // Add the various functional panels to the stack
+        // These methods (logInPanel, etc.) must return a JPanel object
         cardPanel.add(logInPanel(), "LOGIN");
         cardPanel.add(routePanel(), "ROUTEPLANNER");
         cardPanel.add(manageBus(), "MANAGEBUS");
         cardPanel.add(manageBusStation(), "MANAGESTATION");
 
-        // This block adds the plannels into the frame and shows them to the user
+        // Finalize the frame and make it visible to the user
         frame.add(cardPanel);
         frame.setVisible(true);
     }
 
-    // This funtion is to return the menu bar to allow the user to swich between the
-    // different pannels
+    /**
+     * createMenuBar: Generates a navigation bar that changes based 
+     * on the user's permission level (Admin vs Regular).
+     * currentUser is The Account object representing the logged-in user.
+     * it will return A fully constructed JMenuBar.
+     */
     private JMenuBar createMenuBar(Account currentUser) {
 
-        // This is the menu bar object to be returned
+        // Initialize the Bar and the primary Menu category
         JMenuBar menuBar = new JMenuBar();
         JMenu menu = new JMenu("Menu");
 
-        // This is to declare the different pannels to be placed in the menu bar
+        // Define the individual clickable navigation items
         JMenuItem routePlanner = new JMenuItem("Route Planner");
         JMenuItem manageBus = new JMenuItem("Manage Bus");
         JMenuItem manageStation = new JMenuItem("Manage Station");
         JMenuItem logoutItem = new JMenuItem("Logout");
         JMenuItem exit = new JMenuItem("EXIT");
 
-        // This is the font for the menu bar
+        // Styling the menu fonts for readability
         Font menuFont = new Font("Arial", Font.PLAIN, 18);
-
-        // This set the menu bar to the specified font
         menu.setFont(menuFont);
         routePlanner.setFont(menuFont);
         manageBus.setFont(menuFont);
@@ -124,76 +149,72 @@ public class UserInterface {
         logoutItem.setFont(menuFont);
         exit.setFont(menuFont);
 
-        // This will show all of the listed users using the software. 
-        // Only for ADMIN accounts only. 
+        // --- Admin Specific Feature ---
+        // Check if the user has admin privileges before showing the account list option
         if (currentUser.isAdmin()) {
             JMenuItem seeAccounts = new JMenuItem("See All Accounts");
             seeAccounts.setFont(menuFont);
 
+            // Listener to open a popup showing all registered accounts
             seeAccounts.addActionListener(e -> showAllAccountsDialog());
             menu.addSeparator(); 
             menu.add(seeAccounts); 
             menu.addSeparator();
         }
 
-        // This is what happens when exit is selected on the menu bar and will close the
-        // applicaiton.
+        // --- Action Listeners for Navigation ---
+
+        // Exit: Closes the entire application
         exit.addActionListener(e -> {
             frame.dispose();
         });
 
-        // This will switch the frame to the Route pannel when the menu option is
-        // selected.
+        // Switch to Route Planner: Also refreshes dropdown data
         routePlanner.addActionListener(e -> {
-
-            // This line switches the active pannel in the frame
+            // Swap the view
             cardLayout.show(cardPanel, "ROUTEPLANNER");
 
-            // Refresh the dropdown to get the updated list of buses
+            // Clear and Re-populate the Bus dropdown from the latest bManager list
             busDropdown.removeAllItems();
             for (Object bObj : bManager.busList) {
                 BusClass b = (BusClass) bObj;
                 busDropdown.addItem(b.getMake() + " " + b.getModel());
             }
 
+            // Clear and Re-populate the Station dropdown from the latest sManager list
             stationDropDown.removeAllItems();
             for (Object sObj : sManager.stationList) {
                 BusStationClass s = (BusStationClass) sObj;
                 stationDropDown.addItem(s.getName());
             }
 
-            // This is to make the frame check which card it should be showing
+            // Tell the UI to redraw/update
             frame.revalidate();
-
-            // This is to change the selected row to a unused number to prevent acedents
-            selectedRow = -1;
+            selectedRow = -1; // Reset selection to prevent modifying wrong data
         });
 
-        // This will switch the frame to the Bus Manager pannel when the menu option is
-        // selected.
+        // Switch to Bus Manager view
         manageBus.addActionListener(e -> {
             cardLayout.show(cardPanel, "MANAGEBUS");
             frame.revalidate();
             selectedRow = -1;
         });
 
-        // This will switch the frame to the Station manager pannel when the menu option
-        // is
-        // selected.
+        // Switch to Station Manager view
         manageStation.addActionListener(e -> {
             cardLayout.show(cardPanel, "MANAGESTATION");
             frame.revalidate();
             selectedRow = -1;
         });
 
-        // This will log out the user and take the user back to the log in screen
+        // Logout logic: Removes the menu bar and returns to the login screen
         logoutItem.addActionListener(e -> {
-            frame.setJMenuBar(null);
+            frame.setJMenuBar(null); // Hide the menu so logged-out users can't navigate
             cardLayout.show(cardPanel, "LOGIN");
             frame.revalidate();
         });
 
-        // This is to add all the buttons into the menu bar
+        // Assemble the menu items into the menu, then the menu into the bar
         menu.add(routePlanner);
         menu.add(manageBus);
         menu.add(manageStation);
@@ -201,49 +222,62 @@ public class UserInterface {
         menu.add(exit);
         menuBar.add(menu);
 
-        // This returns the menu bar
         return menuBar;
     }
 
+/**
+     * Constructs the Login Panel UI.
+     * Uses GridBagLayout for precise positioning of labels, fields, and buttons.
+     */
     private JPanel logInPanel() {
+        // Initialize the panel with a GridBagLayout manager
         loginPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(5, 5, 5, 5); // Add padding around components
 
+        // Create input components
         JTextField userField = new JTextField(15);
-        JPasswordField passField = new JPasswordField(15);
+        JPasswordField passField = new JPasswordField(15); // Masks characters for security
         JButton loginBtn = new JButton("Login");
         JButton addAccountBtn = new JButton("Add Account");
 
+        // Layout: Username Label and Field
         gbc.gridx = 0;
         gbc.gridy = 0;
         loginPanel.add(new JLabel("Username:"), gbc);
         gbc.gridx = 1;
         loginPanel.add(userField, gbc);
 
+        // Layout: Password Label and Field
         gbc.gridx = 0;
         gbc.gridy = 1;
         loginPanel.add(new JLabel("Password:"), gbc);
         gbc.gridx = 1;
         loginPanel.add(passField, gbc);
 
+        // Layout: Buttons (Grouped in a sub-panel for better alignment)
         gbc.gridx = 0;
         gbc.gridy = 2;
-        gbc.gridwidth = 2;
+        gbc.gridwidth = 2; // Span across two columns
         JPanel btnPanel = new JPanel();
         btnPanel.add(loginBtn);
         btnPanel.add(addAccountBtn);
         loginPanel.add(btnPanel, gbc);
 
+        /**
+         * Action Listener for the Login Button.
+         * Validates input, hashes the password, and checks the CSV database.
+         */
         loginBtn.addActionListener(e -> {
             String username = userField.getText().trim();
+            // Convert char array to String (Standard practice for JPasswordField)
             String password = new String(passField.getPassword());
 
-            // Input validation - added 'return' to stop execution if invalid
+            // --- Client-side Validation ---
             if (username.length() < 3) {
                 JOptionPane.showMessageDialog(frame, "Username must be at least 3 characters long!", "Validation Error",
                         JOptionPane.ERROR_MESSAGE);
-                return;
+                return; // Stop execution
             }
 
             if (password.length() < 5) {
@@ -252,7 +286,8 @@ public class UserInterface {
                 return;
             }
 
-            // Check if user exists
+            // --- Server-side Verification ---
+            // Retrieve the hashed version of the password from the CSV
             String storedHash = getStoredPasswordHash(username);
             if (storedHash == null) {
                 JOptionPane.showMessageDialog(frame, "User not found, please create an account first!",
@@ -260,16 +295,21 @@ public class UserInterface {
                 return;
             }
 
-            // Verify password and role for user/admin
+            // Hash the user's input to see if it matches the stored hash
             String inputHash = hashPassword(password);
             if (inputHash.equals(storedHash)) {
+                // Successful Login
                 String roleCSV = getRoleForUser(username); 
                 Account loggedInAccount = new Account(username, inputHash, roleCSV); 
+                
+                // Set up the menu bar based on user permissions
                 frame.setJMenuBar(createMenuBar(loggedInAccount)); 
 
+                // Switch to the main application view
                 cardLayout.show(cardPanel, "ROUTEPLANNER");
-                frame.setJMenuBar(createMenuBar(loggedInAccount));
                 frame.revalidate();
+                
+                // Clear fields for security
                 userField.setText("");
                 passField.setText("");
             } else {
@@ -278,194 +318,190 @@ public class UserInterface {
             }
         });
 
-        addAccountBtn.addActionListener(e ->
-
-        {
+        // Opens the account creation dialog
+        addAccountBtn.addActionListener(e -> {
             showAddAccountDialog();
         });
 
         return loginPanel;
     }
 
+    /**
+     * Reads the Accounts CSV to determine the user's role (ADMIN or USER).
+     */
     private String getRoleForUser(String username) {
         try (BufferedReader reader = new BufferedReader(new FileReader("Project\\Accounts.csv"))) {
-        String line;
-        while ((line = reader.readLine()) != null) {
-            String[] parts = line.split(", ");
-            if (parts.length >= 3 && parts[0].equalsIgnoreCase(username)) {
-                return parts[2]; 
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(", ");
+                // Index 0: User, Index 1: Hash, Index 2: Role
+                if (parts.length >= 3 && parts[0].equalsIgnoreCase(username)) {
+                    return parts[2].trim(); 
+                }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-    } catch (IOException e) {
-        e.printStackTrace();
-    }
-    return "USER";
+        return "USER"; // Default fallback
     }
 
+    /**
+     * Admin Tool: Displays a list of all accounts stored in the CSV.
+     */
     private void showAllAccountsDialog() {
-    // 1. Create the dialog HERE so it's in scope for this method
-    JDialog managementDialog = new JDialog(frame, "Account Management", true);
-    managementDialog.setLayout(new BorderLayout(10, 10));
+        JDialog managementDialog = new JDialog(frame, "Account Management", true);
+        managementDialog.setLayout(new BorderLayout(10, 10));
 
-    DefaultListModel<String> listModel = new DefaultListModel<>();
-    JList<String> accountList = new JList<>(listModel);
-    
-    // Call the refresh method and pass the model to it
-    refreshAccountList(listModel);
-
-    JButton removeBtn = new JButton("Remove Selected Account");
-    removeBtn.addActionListener(e -> {
-        String selected = accountList.getSelectedValue();
-        if (selected != null) {
-            String userToRemove = selected.split(" - ")[0];
-            performAccountRemoval(userToRemove);
-            refreshAccountList(listModel); // Refresh the list after deleting
-        }
-    });
-
-    managementDialog.add(new JScrollPane(accountList), BorderLayout.CENTER);
-    managementDialog.add(removeBtn, BorderLayout.SOUTH);
-
-    managementDialog.pack();
-    managementDialog.setSize(300, 400);
-    managementDialog.setLocationRelativeTo(frame);
-    managementDialog.setVisible(true);
-}
-
-private void performAccountRemoval(String targetUser) {
-    File originalFile = new File("Project\\Accounts.csv");
-    File tempFile = new File("Project\\Accounts_temp.csv");
-
-    try (BufferedReader reader = new BufferedReader(new FileReader(originalFile));
-         BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
-
-        String line;
-        while ((line = reader.readLine()) != null) {
-            String[] parts = line.split(", ");
-            // Only write the line to the new file if it's NOT the target user
-            if (parts.length > 0 && !parts[0].equalsIgnoreCase(targetUser)) {
-                writer.write(line);
-                writer.newLine();
-            }
-        }
-    } catch (IOException ex) {
-        ex.printStackTrace();
-    }
-
-    // Delete the old file and rename the new one
-    if (originalFile.delete()) {
-        tempFile.renameTo(originalFile);
-    } else {
-        JOptionPane.showMessageDialog(frame, "Error updating the database file.");
-    }
-}
-
-    private void refreshAccountList(DefaultListModel<String> model) {
-    model.clear(); // Clear the old list before reloading
-    File file = new File("Project\\Accounts.csv");
-    
-    if (!file.exists()) return;
-
-    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-        String line;
-        while ((line = reader.readLine()) != null) {
-            String[] parts = line.split(", ");
-            if (parts.length >= 3) {
-                // This updates the selectable JList in your dialog
-                model.addElement(parts[0].trim() + " - (" + parts[2].trim() + ")");
-            }
-        }
-    } catch (IOException e) {
-        System.out.println("Error refreshing list: " + e.getMessage());
-    }
-}
-
-    private void showAddAccountDialog() {
+        // Use a ListModel so we can dynamically update the UI list
+        DefaultListModel<String> listModel = new DefaultListModel<>();
+        JList<String> accountList = new JList<>(listModel);
         
+        refreshAccountList(listModel);
+
+        JButton removeBtn = new JButton("Remove Selected Account");
+        removeBtn.addActionListener(e -> {
+            String selected = accountList.getSelectedValue();
+            if (selected != null) {
+                // Extract the username part before the dash
+                String userToRemove = selected.split(" - ")[0];
+                performAccountRemoval(userToRemove);
+                refreshAccountList(listModel); // Refresh UI after file update
+            }
+        });
+
+        managementDialog.add(new JScrollPane(accountList), BorderLayout.CENTER);
+        managementDialog.add(removeBtn, BorderLayout.SOUTH);
+
+        managementDialog.pack();
+        managementDialog.setSize(300, 400);
+        managementDialog.setLocationRelativeTo(frame);
+        managementDialog.setVisible(true);
+    }
+
+    /**
+     * Deletes an account by copying all lines EXCEPT the target user 
+     * to a temporary file, then replacing the original file.
+     */
+    private void performAccountRemoval(String targetUser) {
+        File originalFile = new File("Project\\Accounts.csv");
+        File tempFile = new File("Project\\Accounts_temp.csv");
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(originalFile));
+             BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(", ");
+                // If it's not the user we want to delete, write it to the new file
+                if (parts.length > 0 && !parts[0].equalsIgnoreCase(targetUser)) {
+                    writer.write(line);
+                    writer.newLine();
+                }
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+        // File swap logic
+        if (originalFile.delete()) {
+            tempFile.renameTo(originalFile);
+        } else {
+            JOptionPane.showMessageDialog(frame, "Error updating the database file.");
+        }
+    }
+
+    /**
+     * Re-reads the CSV file and populates the JList model for the Admin dialog.
+     */
+    private void refreshAccountList(DefaultListModel<String> model) {
+        model.clear(); 
+        File file = new File("Project\\Accounts.csv");
+        
+        if (!file.exists()) return;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(", ");
+                if (parts.length >= 3) {
+                    model.addElement(parts[0].trim() + " - (" + parts[2].trim() + ")");
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error refreshing list: " + e.getMessage());
+        }
+    }
+
+    /**
+     * UI Dialog for creating a new user or admin account.
+     */
+    private void showAddAccountDialog() {
         JDialog dialog = new JDialog(frame, "Create New Account", true);
         dialog.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        // Dropdown for selecting account privilege level
         String[] roles = {"USER", "ADMIN"}; 
         JComboBox<String> roleComboBox = new JComboBox<>(roles);
-        gbc.gridx = 3; gbc.gridy = 0; 
+        gbc.gridx = 0; gbc.gridy = 3; // Note: Adjusted position for logic
         dialog.add(new JLabel("Account Type"), gbc);
-        gbc.gridx = 4; 
+        gbc.gridx = 1; 
         dialog.add(roleComboBox, gbc);
-        gbc.gridy= 4; 
 
         JTextField newUsernameField = new JTextField(15);
         JPasswordField newPasswordField = new JPasswordField(15);
         JPasswordField verifyPasswordField = new JPasswordField(15);
         JButton submitBtn = new JButton("Submit");
 
-        gbc.gridx = 0;
-        gbc.gridy = 0;
+        // UI Layout
+        gbc.gridx = 0; gbc.gridy = 0;
         dialog.add(new JLabel("New Username:"), gbc);
         gbc.gridx = 1;
         dialog.add(newUsernameField, gbc);
 
-        gbc.gridx = 0;
-        gbc.gridy = 1;
+        gbc.gridx = 0; gbc.gridy = 1;
         dialog.add(new JLabel("New Password:"), gbc);
         gbc.gridx = 1;
         dialog.add(newPasswordField, gbc);
 
-        gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridx = 0; gbc.gridy = 2;
         dialog.add(new JLabel("Verify Password:"), gbc);
         gbc.gridx = 1;
         dialog.add(verifyPasswordField, gbc);
 
+        // Submit Logic
         gbc.gridx = 0;
-        gbc.gridy = 3;
+        gbc.gridy = 4;
         gbc.gridwidth = 2;
         submitBtn.addActionListener(e -> {
-            String username = newUsernameField.getText();
+            String username = newUsernameField.getText().trim();
             String password = new String(newPasswordField.getPassword());
             String verify = new String(verifyPasswordField.getPassword());
             String role = (String) roleComboBox.getSelectedItem();
 
+            // Validation Checks
             if (username.isEmpty() || password.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Fields cannot be empty! Please try again.", "Error",
-                        JOptionPane.ERROR_MESSAGE);
-
+                JOptionPane.showMessageDialog(dialog, "Fields cannot be empty!", "Error", JOptionPane.ERROR_MESSAGE);
             } else if (!password.equals(verify)) {
-                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error",
-                        JOptionPane.ERROR_MESSAGE);
-
-            } else if (username.length() >= 1 && username.length() < 3) {
-                JOptionPane.showMessageDialog(dialog, "Username must be at least 3 characters long!", "Error",
-                        JOptionPane.ERROR_MESSAGE);
-
-            } else if (password.length() >= 1 && password.length() < 5) {
-                JOptionPane.showMessageDialog(dialog, "Password must be at least 5 characters long!", "Error",
-                        JOptionPane.ERROR_MESSAGE);
-
-            } else if (!password.equals(verify)) {
-                JOptionPane.showMessageDialog(dialog, "Passwords do not match! Please try again.", "Error",
-                        JOptionPane.ERROR_MESSAGE);
-
+                JOptionPane.showMessageDialog(dialog, "Passwords do not match!", "Error", JOptionPane.ERROR_MESSAGE);
+            } else if (username.length() < 3) {
+                JOptionPane.showMessageDialog(dialog, "Username too short!", "Error", JOptionPane.ERROR_MESSAGE);
+            } else if (password.length() < 5) {
+                JOptionPane.showMessageDialog(dialog, "Password too short!", "Error", JOptionPane.ERROR_MESSAGE);
             } else if (getStoredPasswordHash(username) != null) {
-                JOptionPane.showMessageDialog(dialog, "Username already exists! Please enter a different username.",
-                        "Error", JOptionPane.ERROR_MESSAGE);
-            }
-
-            else {
+                JOptionPane.showMessageDialog(dialog, "Username already exists!", "Error", JOptionPane.ERROR_MESSAGE);
+            } else {
+                // Save to CSV if all checks pass
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter("Project\\Accounts.csv", true))) {
-                    // write the hash of the password (SHA-256)
                     String securePassword = hashPassword(password);
                     writer.write(username + ", " + securePassword + ", " + role);
                     writer.newLine();
 
-                    JOptionPane.showMessageDialog(dialog, "The account '" + username + "' was stored successfully!");
+                    JOptionPane.showMessageDialog(dialog, "Account created successfully!");
                     dialog.dispose();
-
                 } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(dialog, "Error writing to file: " + ex.getMessage(), "File Error",
-                            JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
                 }
             }
@@ -477,16 +513,19 @@ private void performAccountRemoval(String targetUser) {
         dialog.setVisible(true);
     }
 
-    // Hashes a plain text password using SHA-256
+    /**
+     * Security: Converts a plain text password into a SHA-256 Hex string.
+     * This ensures passwords are never stored in plain text.
+     */
     private String hashPassword(String password) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
+                // Convert byte to hex format
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1)
-                    hexString.append('0');
+                if (hex.length() == 1) hexString.append('0');
                 hexString.append(hex);
             }
             return hexString.toString();
@@ -495,18 +534,20 @@ private void performAccountRemoval(String targetUser) {
         }
     }
 
-    // Checks if username exists. If yes, returns the stored hashed password.
+    /**
+     * Reads the CSV to find the hash associated with a username.
+     * return he stored hash string, or null if user doesn't exist.
+     */
     private String getStoredPasswordHash(String username) {
         File file = new File("Project\\Accounts.csv");
-        if (!file.exists())
-            return null;
+        if (!file.exists()) return null;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(", ");
                 if (parts.length >= 2 && parts[0].equalsIgnoreCase(username.trim())) {
-                    return parts[1]; // Return the stored hash
+                    return parts[1]; 
                 }
             }
         } catch (IOException e) {
