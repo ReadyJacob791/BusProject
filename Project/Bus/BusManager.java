@@ -1,8 +1,6 @@
 package Project.Bus;
 
 import java.util.ArrayList;
-import Project.Bus.BusClass;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -11,94 +9,147 @@ import java.io.PrintWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 
-// This class is used to add all buses to an active list from the CSV when the program is running and add, edit, or remove them.
-// This class also saves the bus list to the CSV
+/**
+ * Manages the in-memory list of buses and handles all CSV persistence.
+ * 
+ * Responsibilities:
+ *   Loading the bus fleet from Bus.csv into busList.
+ *   Saving the current busList back to Bus.csv.
+ *   Removing a bus from both the list and the CSV.
+ * The CSV format expected by this class and written by BusClass.displayBusInfo is:
+ *   make, model, type, fuelType, fuelCapacity, fuelBurnRate, cruiseSpeed
+ */
 public class BusManager {
 
-    // This is the active bus list
-    public ArrayList<BusClass> busList = new ArrayList<BusClass>();
+    /**
+     * The live, in-memory list of all buses.
+     * Public so the UI can iterate over it directly without a getter.
+     */
+    public ArrayList<BusClass> busList = new ArrayList<>();
 
-    // This block is declaring the file to read and write buses
+    /** Path to the CSV file that stores bus data. */
     static String filename = "Project/Bus/Bus.csv";
+
+    /** File reference to the bus CSV. */
     File file = new File(filename);
 
-    // This is the declaration of the Bus asstributes
+    // Temporary parsing variables reused across CSV rows
     String line, make, model, type, fuelType;
     double fuelBurnRate, fuelCapacity, cruiseSpeed;
 
-    // This is the declaration of a blank bus
+    /** Placeholder for the bus object being constructed during CSV parsing. */
     BusClass bus;
 
-    // This is a blank constructor
+    // Constructor
+
+    /**
+     * No-argument constructor.
+     * The FileNotFoundException is declared so that the calling code
+     * (UserInterface) is forced to handle the case where the CSV file is absent.
+     *
+     * throws FileNotFoundException If the bus CSV file does not exist.
+     */
     public BusManager() throws FileNotFoundException {
     }
 
-    // This Function is used to add all the buses into a list by reading the CSV.
+    // CSV Loading
+
+    /**
+     * Reads every row from Bus.csv and populates busList
+     *
+     * Each line is split on comma-plus-optional-whitespace.  Column indices:
+     *   0 – make
+     *   1 – model
+     *   2 – type ("CityBus" or "LongDistanceBus")
+     *   3 – fuelType
+     *   4 – fuelCapacity
+     *   5 – fuelBurnRate
+     *   6 – cruiseSpeed
+     * Depending on the type string the appropriate subclass is instantiated.
+     */
     public void listBuses() {
-
-        // This line sets up the Buffered reader to read the file
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            while ((line = br.readLine()) != null) { // This line splits the file into lines add loops
 
-                // This line splits each attribute of the the bus into different Strings
+            // Read one CSV row per iteration
+            while ((line = br.readLine()) != null) {
+
+                // Split on ", " while allowing variable amounts of whitespace
                 String[] columns = line.split(",\\s*");
 
-                // This block is used to declare which columns are which for clearity
-                make = columns[0];
-                model = columns[1];
-                type = columns[2];
+                // Map column indices to named variables for clarity
+                make     = columns[0];
+                model    = columns[1];
+                type     = columns[2];
                 fuelType = columns[3];
 
-                // This block is used to parse the doubles from the strings
-                fuelCapacity = Double.parseDouble(columns[4]);
-                fuelBurnRate = Double.parseDouble(columns[5]);
-                cruiseSpeed = Double.parseDouble(columns[6]);
+                // Parse the numeric fields from their string representations
+                fuelCapacity  = Double.parseDouble(columns[4]);
+                fuelBurnRate  = Double.parseDouble(columns[5]);
+                cruiseSpeed   = Double.parseDouble(columns[6]);
 
-                // This block is used to find wether the Bus is a city or Long distance bus, and
-                // to declare a different Class
+                // Instantiate the correct subclass based on the type column
                 if (type.equalsIgnoreCase("CityBus")) {
-                    bus = new CityBus(make, model, fuelType, fuelCapacity, fuelBurnRate, cruiseSpeed);
+                    bus = new CityBus(make, model, fuelType,
+                                      fuelCapacity, fuelBurnRate, cruiseSpeed);
                 } else {
-                    bus = new LongDistanceBus(make, model, fuelType, fuelCapacity, fuelBurnRate, cruiseSpeed);
+                    bus = new LongDistanceBus(make, model, fuelType,
+                                              fuelCapacity, fuelBurnRate, cruiseSpeed);
                 }
 
-                // This line adds the bus to the list
                 busList.add(bus);
             }
-            // This is the error handling
+
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // This function is used to save all buses into the CSV
-    public void save() throws IOException {
+    // CSV Saving
 
-        // This block is used to write to the file using the bus info
+    /**
+     * Writes the entire current busList to Bus.csv},
+     * overwriting its previous contents.
+     *
+     * Each bus is serialised via BusClass#displayBusInfo(), which
+     * produces the comma-separated format this class reads back on the next
+     * listBuses() call.
+     *
+     * @throws IOException If the file cannot be opened or written to.
+     */
+    public void save() throws IOException {
         try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
             for (BusClass b : busList) {
-                String line = b.displayBusInfo();
-                pw.println(line);
+                pw.println(b.displayBusInfo());
             }
         }
     }
 
-    // This function is used to remove a bus from the active list as well as the CSV
-    // file. It returns a boolean based on if it was able to delete the bus
-    public boolean removeBus(int row) {
+    // Bus Removal
 
-        // This line is used to make sure the list has that many buses
+    /**
+     * Removes the bus at the given index from busList and immediately
+     * saves the updated list to CSV.
+     *
+     * row Zero-based index of the bus to remove.
+     * true if the bus was found and removed;
+     * false if row is out of bounds.
+     */
+    public boolean removeBus(int row) {
+        // Validate the index before attempting removal
         if (row >= 0 && row < busList.size()) {
 
-            // This Block removes the bus the saves the file.
             busList.remove(row);
+
+            // Persist the change so the CSV stays in sync with memory
             try {
                 save();
             } catch (IOException e) {
                 e.printStackTrace();
             }
             return true;
-        } else
-            return false;
+
+        } else {
+            return false; // Index was out of range — nothing was removed
+        }
     }
 }
