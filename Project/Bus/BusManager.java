@@ -114,7 +114,7 @@ public class BusManager {
      * produces the comma-separated format this class reads back on the next
      * listBuses() call.
      *
-     * @throws IOException If the file cannot be opened or written to.
+     * throws IOException If the file cannot be opened or written to.
      */
     public void save() throws IOException {
         try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {

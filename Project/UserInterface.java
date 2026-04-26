@@ -1,8 +1,8 @@
 package Project;
 
 /**
- * These are the imports required for the UI, Data Management, 
- * and Security features.
+ * These are the imports required for the UI, data management,
+ * and security features.
  */
 import Project.Bus.*;
 import Project.BusStation.*;
@@ -17,130 +17,187 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
 /**
- * The UserInterface class serves as the main entry point for the GUI.
- * It manages the different "pages" of the application using a CardLayout.
+ * Main entry point and primary GUI class for the Bus Route Planner application.
+ *
+ * Architecture – CardLayout multi screen design:
+ * A single JFrame hosts a CardLayout panel.  Each functional
+ * area (Login, Route Planner, Manage Bus, Manage Station) is a JPanel
+ * added to that card stack.  Switching screens is done by calling
+ * cardLayout.show(cardPanel, "CARD_NAME").
+ *
+ * Security model:
+ * Passwords are never stored in plain text.  On registration they are hashed
+ * with SHA 256 before being written to Accounts.csv.  On login the
+ * entered password is hashed and compared to the stored hash.
  */
 public class UserInterface {
 
-    //  GUI Components 
-    private JFrame frame;
-    private JPanel cardPanel;       // The container that holds different screens
-    private CardLayout cardLayout; // The manager that swaps between screens
-    private JPanel loginPanel;
-    private JPanel routePanel;
-    private JPanel buspanel;
-    private JPanel stationpanel;
+    // GUI Components
 
-    //  Table Models for Data Display 
+    /** The top level application window. */
+    private JFrame frame;
+
+    /** Container managed by #cardLayout that holds every screen. */
+    private JPanel cardPanel;
+
+    /** Swaps between the different application screens. */
+    private CardLayout cardLayout;
+
+    /** The login screen panel (declared as a field for potential future reference). */
+    private JPanel loginPanel;
+
+    // Table Models
+
+    /** Table model for the bus management screen, drives the JTable display. */
     private DefaultTableModel busTable;
+
+    /** Table model for the station management screen. */
     private DefaultTableModel stationTable;
 
-    //  Logic & Data Managers 
+    // Backend Logic & Data Managers
+
+    /** Manages the in memory bus list and Bus.csv persistence. */
     private BusManager bManager;
+
+    /** Manages the in memory station list and BusStation.csv persistence. */
     private BusStationManager sManager;
+
+    /** The weighted graph of stations and roads used for pathfinding. */
     private WeightedGraph routeGraph;
+
+    /** Dijkstra based pathfinder linked to #routeGraph. */
     private RoutePlanner routePlanner;
 
-    //  Interactive UI Elements 
-    JComboBox<String> busDropdown = new JComboBox<>();
-    JComboBox<String> stationDropDown = new JComboBox<>();
-    private int selectedRow = -1; // Tracks which row is selected in tables
+    // Shared Interactive Controls
 
     /**
-     * Constructor: Initializes the backend managers and data structures.
-     * It attempts to load the necessary data before the UI is built.
+     * Dropdown of available buses, populated from BusManager#busList.
+     * Declared here so it can be refreshed from the menu bar action listener.
+     */
+    JComboBox<String> busDropdown = new JComboBox<>();
+
+    /**
+     * Dropdown of available stations, populated from
+     * BusStationManager#stationList.
+     * Declared here so it can be refreshed from the menu bar action listener.
+     */
+    JComboBox<String> stationDropDown = new JComboBox<>();
+
+    /**
+     * Zero based index of the row currently selected in whichever table is
+     * active ( 1 means no selection).  Shared between the bus and
+     * station management panels because only one can be active at a time.
+     */
+    private int selectedRow =  1;
+
+    // Constructor
+
+    /**
+     * Initialises all backend managers and data structures.
+     * Data is not yet loaded here — that happens in #initialize() so
+     * the GUI is ready before any file I/O errors can surface.
      */
     public UserInterface() {
         try {
-            // Instantiate the Bus management logic
-            bManager = new BusManager();
-
-            // Instantiate the Station management logic
-            sManager = new BusStationManager();
-
-            // Create the graph structure for the map/routes
-            routeGraph = new WeightedGraph();
-
-            // Link the route planner to the graph
+            bManager     = new BusManager();
+            sManager     = new BusStationManager();
+            routeGraph   = new WeightedGraph();
             routePlanner = new RoutePlanner(routeGraph);
-
         } catch (FileNotFoundException e) {
-            // Error handling if data files are missing
             e.printStackTrace();
         }
     }
 
+    // Entry Point
+
     /**
-     * Main method: The starting point of the Java application.
+     * Application entry point.
+     * Shows a security disclaimer, then launches the Swing UI on the Event
+     * Dispatch Thread.
+     *
+     * args Command line arguments (not used).
      */
     public static void main(String[] args) {
-        // Show a security disclaimer before the app opens
-        JOptionPane.showMessageDialog(null,
+        // Display a one time security warning before the app opens
+        JOptionPane.showMessageDialog(
+                null,
                 "System Warning: Unauthorized use is prohibited. Click OK to proceed.",
                 "Security Alert",
                 JOptionPane.WARNING_MESSAGE);
-        
-        // Launch the UI
+
+        // Launch the UI (Swing is not thread safe; use invokeLater in production)
         new UserInterface().initialize();
     }
 
+    // Initialization
+
     /**
-     * Initialize: Configures the JFrame, loads CSV data into memory, 
-     * and constructs the visual layout.
+     * Loads CSV data, builds the route graph, constructs the JFrame, and
+     * makes the application visible.
+     *
+     * Steps:
+     * 
+     *   Load buses and stations from their respective CSV files.
+     *   Build the weighted graph using the stations and WeightedGraph.csv.
+     *   Create the JFrame with a CardLayout and add all screen panels.
+     *   Show the frame (starts on the LOGIN card).
+     * 
      */
     public void initialize() {
 
-        // Load data from external CSV files into the Manager lists
+        //  Load data from CSV files 
         bManager.listBuses();
         sManager.listStations();
 
-        // Build the graph using the loaded stations and the connection CSV
-        // NOTE: Check the spelling of "WeigthedGraph.csv" (See Error list below)
+        // Build the in memory graph: vertices from stations, edges from CSV
         routeGraph.buildGraphFromCSV(sManager, "Project/Route/WeightedGraph.csv");
 
-        //  JFrame Setup 
+        //  JFrame setup 
         frame = new JFrame("Route Planner");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setExtendedState(JFrame.MAXIMIZED_BOTH); // Opens the app in full screen
-        frame.setLocationRelativeTo(null); // Centers the frame (though MAXIMIZED overrides this)
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH); // Open maximised/full screen
+        frame.setLocationRelativeTo(null);             // Centre on screen (overridden by MAXIMIZED)
 
-        //  CardLayout Setup 
-        // CardLayout allows us to "stack" panels and show only one at a time
+        //  CardLayout setup 
         cardLayout = new CardLayout();
-        cardPanel = new JPanel(cardLayout);
+        cardPanel  = new JPanel(cardLayout);
 
-        // Add the various functional panels to the stack
-        // These methods (logInPanel, etc.) must return a JPanel object
-        cardPanel.add(logInPanel(), "LOGIN");
-        cardPanel.add(routePanel(), "ROUTEPLANNER");
-        cardPanel.add(manageBus(), "MANAGEBUS");
-        cardPanel.add(manageBusStation(), "MANAGESTATION");
+        // Register each screen with a unique string key
+        cardPanel.add(logInPanel(),        "LOGIN");
+        cardPanel.add(routePanel(),        "ROUTEPLANNER");
+        cardPanel.add(manageBus(),         "MANAGEBUS");
+        cardPanel.add(manageBusStation(),  "MANAGESTATION");
 
-        // Finalize the frame and make it visible to the user
         frame.add(cardPanel);
-        frame.setVisible(true);
+        frame.setVisible(true); // The LOGIN card is shown by default
     }
 
+    // Menu Bar
+
     /**
-     * createMenuBar: Generates a navigation bar that changes based 
-     * on the user's permission level (Admin vs Regular).
-     * currentUser is The Account object representing the logged-in user.
-     * it will return A fully constructed JMenuBar.
+     * Builds and returns a navigation menu bar tailored to the logged in
+     * user's permission level.
+     *
+     * Regular users see: Route Planner, Manage Bus, Manage Station, Logout, Exit.
+     * Admin users additionally see: See All Accounts (listed first, separated
+     * from the navigation items by dividers).
+     *
+     * currentUser The Account whose role determines the menu contents.
+     * return A fully configured JMenuBar.
      */
     private JMenuBar createMenuBar(Account currentUser) {
 
-        // Initialize the Bar and the primary Menu category
         JMenuBar menuBar = new JMenuBar();
         JMenu menu = new JMenu("Menu");
 
-        // Define the individual clickable navigation items
-        JMenuItem routePlanner = new JMenuItem("Route Planner");
-        JMenuItem manageBus = new JMenuItem("Manage Bus");
+        // Define the navigation items
+        JMenuItem routePlanner  = new JMenuItem("Route Planner");
+        JMenuItem manageBus     = new JMenuItem("Manage Bus");
         JMenuItem manageStation = new JMenuItem("Manage Station");
-        JMenuItem logoutItem = new JMenuItem("Logout");
-        JMenuItem exit = new JMenuItem("EXIT");
+        JMenuItem logoutItem    = new JMenuItem("Logout");
+        JMenuItem exit          = new JMenuItem("EXIT");
 
-        // Styling the menu fonts for readability
+        // Apply a consistent font to all menu elements
         Font menuFont = new Font("Arial", Font.PLAIN, 18);
         menu.setFont(menuFont);
         routePlanner.setFont(menuFont);
@@ -149,72 +206,67 @@ public class UserInterface {
         logoutItem.setFont(menuFont);
         exit.setFont(menuFont);
 
-        //  Admin Specific Feature 
-        // Check if the user has admin privileges before showing the account list option
+        //  Admin only item 
+        // Only shown when the logged in account has the ADMIN role
         if (currentUser.isAdmin()) {
             JMenuItem seeAccounts = new JMenuItem("See All Accounts");
             seeAccounts.setFont(menuFont);
 
-            // Listener to open a popup showing all registered accounts
-            seeAccounts.addActionListener(e -> showAllAccountsDialog());
-            menu.addSeparator(); 
-            menu.add(seeAccounts); 
+            // Open the account management dialog when clicked
+            seeAccounts.addActionListener(e  -> showAllAccountsDialog());
+
+            menu.addSeparator();
+            menu.add(seeAccounts);
             menu.addSeparator();
         }
 
-        //  Action Listeners for Navigation 
+        //  Action Listeners 
 
-        // Exit: Closes the entire application
-        exit.addActionListener(e -> {
-            frame.dispose();
-        });
+        // Exit: dispose the JFrame, which triggers EXIT_ON_CLOSE
+        exit.addActionListener(e  -> frame.dispose());
 
-        // Switch to Route Planner: Also refreshes dropdown data
-        routePlanner.addActionListener(e -> {
-            // Swap the view
+        // Route Planner: switch screen and refresh all dropdowns from live data
+        routePlanner.addActionListener(e  -> {
             cardLayout.show(cardPanel, "ROUTEPLANNER");
 
-            // Clear and Re-populate the Bus dropdown from the latest bManager list
+            // Repopulate the bus dropdown from the latest manager state
             busDropdown.removeAllItems();
-            for (Object bObj : bManager.busList) {
-                BusClass b = (BusClass) bObj;
+            for (BusClass b : bManager.busList) {
                 busDropdown.addItem(b.getMake() + " " + b.getModel());
             }
 
-            // Clear and Re-populate the Station dropdown from the latest sManager list
+            // Repopulate the station dropdown from the latest manager state
             stationDropDown.removeAllItems();
-            for (Object sObj : sManager.stationList) {
-                BusStationClass s = (BusStationClass) sObj;
+            for (BusStationClass s : sManager.stationList) {
                 stationDropDown.addItem(s.getName());
             }
 
-            // Tell the UI to redraw/update
             frame.revalidate();
-            selectedRow = -1; // Reset selection to prevent modifying wrong data
+            selectedRow =  1; // Clear selection so stale data can't be modified
         });
 
-        // Switch to Bus Manager view
-        manageBus.addActionListener(e -> {
+        // Manage Bus: simple screen swap
+        manageBus.addActionListener(e  -> {
             cardLayout.show(cardPanel, "MANAGEBUS");
             frame.revalidate();
-            selectedRow = -1;
+            selectedRow =  1;
         });
 
-        // Switch to Station Manager view
-        manageStation.addActionListener(e -> {
+        // Manage Station: simple screen swap
+        manageStation.addActionListener(e  -> {
             cardLayout.show(cardPanel, "MANAGESTATION");
             frame.revalidate();
-            selectedRow = -1;
+            selectedRow =  1;
         });
 
-        // Logout logic: Removes the menu bar and returns to the login screen
-        logoutItem.addActionListener(e -> {
-            frame.setJMenuBar(null); // Hide the menu so logged-out users can't navigate
+        // Logout: remove the menu bar (hides navigation) and return to login
+        logoutItem.addActionListener(e  -> {
+            frame.setJMenuBar(null); // Hide the menu so unauthenticated users can't navigate
             cardLayout.show(cardPanel, "LOGIN");
             frame.revalidate();
         });
 
-        // Assemble the menu items into the menu, then the menu into the bar
+        // Assemble the menu in display order
         menu.add(routePlanner);
         menu.add(manageBus);
         menu.add(manageStation);
@@ -225,153 +277,167 @@ public class UserInterface {
         return menuBar;
     }
 
-/**
-     * Constructs the Login Panel UI.
-     * Uses GridBagLayout for precise positioning of labels, fields, and buttons.
+    // Login Panel
+
+    /**
+     * Constructs and returns the Login screen panel.
+     *
+     * Layout: GridBagLayout centres a username field, a password field
+     * (masked), a Login button, and an Add Account button on screen.
+     *
+     * Login flow:
+     * 
+     *   Validate that username ≥ 3 characters and password ≥ 5 characters.
+     *   Look up the stored SHA 256 hash for the username in Accounts.csv.
+     *   Hash the entered password and compare to the stored hash.
+     *   On success: load the user's role, build the menu bar, switch screens.
+     * 
+     *
+     * return The configured login JPanel.
      */
     private JPanel logInPanel() {
-        // Initialize the panel with a GridBagLayout manager
         loginPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5); // Add padding around components
+        gbc.insets = new Insets(5, 5, 5, 5);
 
-        // Create input components
-        JTextField userField = new JTextField(15);
-        JPasswordField passField = new JPasswordField(15); // Masks characters for security
-        JButton loginBtn = new JButton("Login");
+        JTextField    userField = new JTextField(15);
+        JPasswordField passField = new JPasswordField(15); // Characters shown as dots
+        JButton loginBtn      = new JButton("Login");
         JButton addAccountBtn = new JButton("Add Account");
 
-        // Layout: Username Label and Field
-        gbc.gridx = 0;
-        gbc.gridy = 0;
+        // Row 0: username
+        gbc.gridx = 0; gbc.gridy = 0;
         loginPanel.add(new JLabel("Username:"), gbc);
         gbc.gridx = 1;
         loginPanel.add(userField, gbc);
 
-        // Layout: Password Label and Field
-        gbc.gridx = 0;
-        gbc.gridy = 1;
+        // Row 1: password
+        gbc.gridx = 0; gbc.gridy = 1;
         loginPanel.add(new JLabel("Password:"), gbc);
         gbc.gridx = 1;
         loginPanel.add(passField, gbc);
 
-        // Layout: Buttons (Grouped in a sub-panel for better alignment)
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        gbc.gridwidth = 2; // Span across two columns
+        // Row 2: buttons (span two columns)
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
         JPanel btnPanel = new JPanel();
         btnPanel.add(loginBtn);
         btnPanel.add(addAccountBtn);
         loginPanel.add(btnPanel, gbc);
 
-        /**
-         * Action Listener for the Login Button.
-         * Validates input, hashes the password, and checks the CSV database.
-         */
-        loginBtn.addActionListener(e -> {
+        //  Login button action 
+        loginBtn.addActionListener(e  -> {
             String username = userField.getText().trim();
-            // Convert char array to String (Standard practice for JPasswordField)
+            // Convert char[] to String (standard JPasswordField practice)
             String password = new String(passField.getPassword());
 
-            //  Client-side Validation 
+            // Client side length validation
             if (username.length() < 3) {
-                JOptionPane.showMessageDialog(frame, "Username must be at least 3 characters long!", "Validation Error",
-                        JOptionPane.ERROR_MESSAGE);
-                return; // Stop execution
+                JOptionPane.showMessageDialog(frame,
+                        "Username must be at least 3 characters long!",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
             }
-
             if (password.length() < 5) {
-                JOptionPane.showMessageDialog(frame, "Password must be at least 5 characters long!", "Validation Error",
-                        JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame,
+                        "Password must be at least 5 characters long!",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            //  Server-side Verification 
-            // Retrieve the hashed version of the password from the CSV
+            // Look up the stored hash for this username
             String storedHash = getStoredPasswordHash(username);
             if (storedHash == null) {
-                JOptionPane.showMessageDialog(frame, "User not found, please create an account first!",
+                JOptionPane.showMessageDialog(frame,
+                        "User not found, please create an account first!",
                         "Account Required", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // Hash the user's input to see if it matches the stored hash
+            // Hash the entered password and compare
             String inputHash = hashPassword(password);
             if (inputHash.equals(storedHash)) {
-                // Successful Login
-                String roleCSV = getRoleForUser(username); 
-                Account loggedInAccount = new Account(username, inputHash, roleCSV); 
-                
-                // Set up the menu bar based on user permissions
-                frame.setJMenuBar(createMenuBar(loggedInAccount)); 
+                //  Successful login 
+                String roleCSV = getRoleForUser(username);
+                Account loggedInAccount = new Account(username, inputHash, roleCSV);
 
-                // Switch to the main application view
+                // Install a role aware menu bar
+                frame.setJMenuBar(createMenuBar(loggedInAccount));
                 cardLayout.show(cardPanel, "ROUTEPLANNER");
                 frame.revalidate();
-                
-                // Clear fields for security
+
+                // Clear fields so credentials aren't visible if the user returns
                 userField.setText("");
                 passField.setText("");
             } else {
-                JOptionPane.showMessageDialog(frame, "Incorrect password! Please try again.", "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame,
+                        "Incorrect password! Please try again.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        // Opens the account creation dialog
-        addAccountBtn.addActionListener(e -> {
-            showAddAccountDialog();
-        });
+        // Open the account creation dialog
+        addAccountBtn.addActionListener(e  -> showAddAccountDialog());
 
         return loginPanel;
     }
 
+    // Account Helpers
+
     /**
-     * Reads the Accounts CSV to determine the user's role (ADMIN or USER).
+     * Reads Accounts.csv to find the role string for a given username.
+     * Returns "USER" as a safe default if the role column is missing or
+     * the username is not found.
+     *
+     * CSV format expected: username, passwordHash, role
+     *
+     * username The username to look up (case insensitive).
+     * return The role string, or "USER" if not found.
      */
     private String getRoleForUser(String username) {
-        try (BufferedReader reader = new BufferedReader(new FileReader("Project\\Accounts.csv"))) {
+        try (BufferedReader reader = new BufferedReader(
+                new FileReader("Project\\Accounts.csv"))) {
+
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(", ");
-                // Index 0: User, Index 1: Hash, Index 2: Role
+                // parts[0] = username, parts[1] = hash, parts[2] = role
                 if (parts.length >= 3 && parts[0].equalsIgnoreCase(username)) {
-                    return parts[2].trim(); 
+                    return parts[2].trim();
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return "USER"; // Default fallback
+        return "USER"; // Safe default if role column is absent or user not found
     }
 
     /**
-     * Admin Tool: Displays a list of all accounts stored in the CSV.
+     * Admin tool: opens a modal dialog listing every account in the CSV with
+     * a button to remove a selected account.
      */
     private void showAllAccountsDialog() {
         JDialog managementDialog = new JDialog(frame, "Account Management", true);
         managementDialog.setLayout(new BorderLayout(10, 10));
 
-        // Use a ListModel so we can dynamically update the UI list
+        // Use a mutable ListModel so removal refreshes the UI automatically
         DefaultListModel<String> listModel = new DefaultListModel<>();
         JList<String> accountList = new JList<>(listModel);
-        
+
         refreshAccountList(listModel);
 
         JButton removeBtn = new JButton("Remove Selected Account");
-        removeBtn.addActionListener(e -> {
+        removeBtn.addActionListener(e  -> {
             String selected = accountList.getSelectedValue();
             if (selected != null) {
-                // Extract the username part before the dash
-                String userToRemove = selected.split(" - ")[0];
+                // The list shows "username   (ROLE)"; extract just the username
+                String userToRemove = selected.split("   ")[0];
                 performAccountRemoval(userToRemove);
-                refreshAccountList(listModel); // Refresh UI after file update
+                refreshAccountList(listModel); // Refresh the list after the file update
             }
         });
 
         managementDialog.add(new JScrollPane(accountList), BorderLayout.CENTER);
         managementDialog.add(removeBtn, BorderLayout.SOUTH);
-
         managementDialog.pack();
         managementDialog.setSize(300, 400);
         managementDialog.setLocationRelativeTo(frame);
@@ -379,12 +445,15 @@ public class UserInterface {
     }
 
     /**
-     * Deletes an account by copying all lines EXCEPT the target user 
-     * to a temporary file, then replacing the original file.
+     * Removes a specific account from Accounts.csv by copying every
+     * line except the target user's to a temporary file, then swapping the
+     * temporary file in place of the original.
+     *
+     * targetUser The username to delete (case insensitive).
      */
     private void performAccountRemoval(String targetUser) {
         File originalFile = new File("Project\\Accounts.csv");
-        File tempFile = new File("Project\\Accounts_temp.csv");
+        File tempFile     = new File("Project\\Accounts_temp.csv");
 
         try (BufferedReader reader = new BufferedReader(new FileReader(originalFile));
              BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
@@ -392,7 +461,7 @@ public class UserInterface {
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(", ");
-                // If it's not the user we want to delete, write it to the new file
+                // Write every account EXCEPT the one being deleted
                 if (parts.length > 0 && !parts[0].equalsIgnoreCase(targetUser)) {
                     writer.write(line);
                     writer.newLine();
@@ -402,7 +471,7 @@ public class UserInterface {
             ex.printStackTrace();
         }
 
-        // File swap logic
+        // Atomic file swap: delete original, rename temp to original
         if (originalFile.delete()) {
             tempFile.renameTo(originalFile);
         } else {
@@ -411,12 +480,14 @@ public class UserInterface {
     }
 
     /**
-     * Re-reads the CSV file and populates the JList model for the Admin dialog.
+     * Clears and repopulates a DefaultListModel with all accounts from
+     * the CSV, formatted as "username   (ROLE)".
+     *
+     * model The list model to refresh.
      */
     private void refreshAccountList(DefaultListModel<String> model) {
-        model.clear(); 
+        model.clear();
         File file = new File("Project\\Accounts.csv");
-        
         if (!file.exists()) return;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
@@ -424,7 +495,7 @@ public class UserInterface {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(", ");
                 if (parts.length >= 3) {
-                    model.addElement(parts[0].trim() + " - (" + parts[2].trim() + ")");
+                    model.addElement(parts[0].trim() + "   (" + parts[2].trim() + ")");
                 }
             }
         } catch (IOException e) {
@@ -433,7 +504,18 @@ public class UserInterface {
     }
 
     /**
-     * UI Dialog for creating a new user or admin account.
+     * Opens a modal dialog that lets any visitor (including non logged in users)
+     * register a new account.
+     *
+     * Validation checks:
+     * 
+     *   Username and password must not be empty.
+     *   Password and confirm password must match.
+     *   Username must be at least 3 characters.
+     *   Password must be at least 5 characters.
+     *   Username must not already exist in the CSV.
+     * 
+     * On success the password is hashed before being written to the CSV.
      */
     private void showAddAccountDialog() {
         JDialog dialog = new JDialog(frame, "Create New Account", true);
@@ -442,20 +524,16 @@ public class UserInterface {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Dropdown for selecting account privilege level
-        String[] roles = {"USER", "ADMIN"}; 
+        // Role selector — USER or ADMIN
+        String[] roles = {"USER", "ADMIN"};
         JComboBox<String> roleComboBox = new JComboBox<>(roles);
-        gbc.gridx = 0; gbc.gridy = 3; // Note: Adjusted position for logic
-        dialog.add(new JLabel("Account Type"), gbc);
-        gbc.gridx = 1; 
-        dialog.add(roleComboBox, gbc);
 
-        JTextField newUsernameField = new JTextField(15);
-        JPasswordField newPasswordField = new JPasswordField(15);
+        JTextField    newUsernameField  = new JTextField(15);
+        JPasswordField newPasswordField  = new JPasswordField(15);
         JPasswordField verifyPasswordField = new JPasswordField(15);
         JButton submitBtn = new JButton("Submit");
 
-        // UI Layout
+        // Layout rows
         gbc.gridx = 0; gbc.gridy = 0;
         dialog.add(new JLabel("New Username:"), gbc);
         gbc.gridx = 1;
@@ -471,30 +549,41 @@ public class UserInterface {
         gbc.gridx = 1;
         dialog.add(verifyPasswordField, gbc);
 
-        // Submit Logic
-        gbc.gridx = 0;
-        gbc.gridy = 4;
-        gbc.gridwidth = 2;
-        submitBtn.addActionListener(e -> {
+        gbc.gridx = 0; gbc.gridy = 3;
+        dialog.add(new JLabel("Account Type"), gbc);
+        gbc.gridx = 1;
+        dialog.add(roleComboBox, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
+        dialog.add(submitBtn, gbc);
+
+        //  Submit action 
+        submitBtn.addActionListener(e  -> {
             String username = newUsernameField.getText().trim();
             String password = new String(newPasswordField.getPassword());
-            String verify = new String(verifyPasswordField.getPassword());
-            String role = (String) roleComboBox.getSelectedItem();
+            String verify   = new String(verifyPasswordField.getPassword());
+            String role     = (String) roleComboBox.getSelectedItem();
 
-            // Validation Checks
+            // Sequential validation with descriptive error messages
             if (username.isEmpty() || password.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "Fields cannot be empty!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Fields cannot be empty!",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             } else if (!password.equals(verify)) {
-                JOptionPane.showMessageDialog(dialog, "Passwords do not match!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Passwords do not match!",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             } else if (username.length() < 3) {
-                JOptionPane.showMessageDialog(dialog, "Username too short!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Username too short!",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             } else if (password.length() < 5) {
-                JOptionPane.showMessageDialog(dialog, "Password too short!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Password too short!",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             } else if (getStoredPasswordHash(username) != null) {
-                JOptionPane.showMessageDialog(dialog, "Username already exists!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Username already exists!",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             } else {
-                // Save to CSV if all checks pass
-                try (BufferedWriter writer = new BufferedWriter(new FileWriter("Project\\Accounts.csv", true))) {
+                // All checks passed — hash password and append to CSV
+                try (BufferedWriter writer = new BufferedWriter(
+                        new FileWriter("Project\\Accounts.csv", true))) {
                     String securePassword = hashPassword(password);
                     writer.write(username + ", " + securePassword + ", " + role);
                     writer.newLine();
@@ -507,36 +596,53 @@ public class UserInterface {
             }
         });
 
-        dialog.add(submitBtn, gbc);
         dialog.pack();
         dialog.setLocationRelativeTo(frame);
         dialog.setVisible(true);
     }
 
+    // Security / Hashing
+
     /**
-     * Security: Converts a plain text password into a SHA-256 Hex string.
-     * This ensures passwords are never stored in plain text.
+     * Produces a SHA 256 hex string from a plain text password.
+     *
+     * SHA 256 is a one way hash function: given the hash it is computationally
+     * infeasible to recover the original password.  The result is used both
+     * when storing a new account and when verifying a login attempt.
+     *
+     * password The plain text password to hash.
+     * return A 64 character lowercase hex string.
+     * throws RuntimeException If SHA 256 is unavailable (should never occur
+     *                          on a standard JVM).
      */
     private String hashPassword(String password) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = MessageDigest.getInstance("SHA 256");
             byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+
+            // Convert each byte to a two character hex representation
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
-                // Convert byte to hex format
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1) hexString.append('0'); // Pad single digit hex
                 hexString.append(hex);
             }
             return hexString.toString();
+
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Hashing algorithm SHA-256 not found", e);
+            throw new RuntimeException("Hashing algorithm SHA 256 not found", e);
         }
     }
 
     /**
-     * Reads the CSV to find the hash associated with a username.
-     * return he stored hash string, or null if user doesn't exist.
+     * Searches Accounts.csv for the password hash associated with the
+     * given username.
+     *
+     * CSV format: username, passwordHash, role
+     *
+     * username The username to look up (case insensitive, whitespace trimmed).
+     * return The stored SHA 256 hash string, or null if the username
+     *         is not found or the file does not exist.
      */
     private String getStoredPasswordHash(String username) {
         File file = new File("Project\\Accounts.csv");
@@ -546,44 +652,57 @@ public class UserInterface {
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(", ");
+                // parts[0] = username, parts[1] = hash
                 if (parts.length >= 2 && parts[0].equalsIgnoreCase(username.trim())) {
-                    return parts[1]; 
+                    return parts[1];
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return null;
+        return null; // Username not found
     }
 
-/**
-     * Builds and returns the main Route Planning panel.
-     * Note: This method assumes `bManager`, `sManager`, `frame`, `routeGraph`, 
-     * and `routePlanner` are declared as class-level instance variables.
+    // Route Planner Panel
+
+    /**
+     * Constructs and returns the Route Planner screen.
+     *
+     * Layout:
+     * 
+     *   LEFT  – a nested CardLayout that flips between the route builder
+     *               controls and the results itinerary.
+     *   CENTER – a GraphPanel that draws the station graph.
+     * 
+     *
+     * Features:
+     * 
+     *   Add/remove stations to build a multi stop itinerary.
+     *   Calculate the shortest Dijkstra path across all legs.
+     *   Display heading, distance, time, fuel use, and approval status.
+     *   Add or remove edges (road connections) between stations.
+     * 
+     *
+     * return The configured route planner JPanel.
      */
     private JPanel routePanel() {
-        // Main container using BorderLayout (North, South, East, West, Center)
         JPanel routePan = new JPanel(new BorderLayout());
 
-        // We use a CardLayout for the left panel so we can swap between the "Controls" view
-        // and the "Results" view without opening a new window.
-        JPanel leftCardPanel = new JPanel(new CardLayout());
-        CardLayout leftLayout = (CardLayout) leftCardPanel.getLayout();
-
-        // Fix the left panel's width to 450px, letting height stretch automatically
+        // Left panel uses its own nested CardLayout to swap between
+        // "build route" controls and the results page
+        JPanel    leftCardPanel = new JPanel(new CardLayout());
+        CardLayout leftLayout   = (CardLayout) leftCardPanel.getLayout();
         leftCardPanel.setPreferredSize(new Dimension(450, 0));
 
-        // --- CONTROLS PANEL SETUP ---
-        // BoxLayout with Y_AXIS stacks components vertically from top to bottom
+        //   Controls sub panel  
         JPanel controlPanel = new JPanel();
         controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
         controlPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // Reusable fonts for UI consistency
         Font largeFont = new Font("SansSerif", Font.PLAIN, 18);
-        Font boldFont = new Font("SansSerif", Font.BOLD, 18);
+        Font boldFont  = new Font("SansSerif", Font.BOLD, 18);
 
-        // Header for the route building section
+        // Section header
         JLabel routeLabel = new JLabel("Build Route");
         routeLabel.setFont(boldFont);
         routeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -592,25 +711,18 @@ public class UserInterface {
         busLabel.setFont(boldFont);
         busLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // FIX: Declared busDropdown and stationDropDown locally to prevent compilation errors.
-        // If these are class-level variables, remove the 'JComboBox<String>' type declaration here.
-        JComboBox<String> busDropdown = new JComboBox<>();
-        JComboBox<String> stationDropDown = new JComboBox<>();
-
-        // Populate the Bus selection dropdown
+        // Bus selection dropdown — populated from the live busList
         busDropdown.setFont(largeFont);
         busDropdown.setMaximumSize(new Dimension(400, 40));
-        for (Object bObj : bManager.busList) {
-            BusClass b = (BusClass) bObj;
+        for (BusClass b : bManager.busList) {
             busDropdown.addItem(b.getMake() + " " + b.getModel());
         }
 
-        // Add bus selection elements to the control panel
         controlPanel.add(busLabel);
         controlPanel.add(busDropdown);
-        controlPanel.add(Box.createVerticalStrut(15)); // Adds visual vertical spacing
+        controlPanel.add(Box.createVerticalStrut(15));
 
-        // Populate the Station selection dropdown
+        // Station selection dropdown — populated from the live stationList
         stationDropDown.setFont(largeFont);
         for (BusStationClass s : sManager.stationList) {
             stationDropDown.addItem(s.getName());
@@ -621,12 +733,10 @@ public class UserInterface {
         addBtn.setFont(largeFont);
         addBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Use DefaultListModel to allow dynamic adding/removing of route stops in the JList
+        // Ordered list of stops the user has chosen for their route
         DefaultListModel<String> routeStopsModel = new DefaultListModel<>();
-        JList<String> routeStopsList = new JList<>(routeStopsModel);
+        JList<String>  routeStopsList = new JList<>(routeStopsModel);
         routeStopsList.setFont(largeFont);
-        
-        // Wrap the list in a scroll pane in case the user adds many stops
         JScrollPane listScroller = new JScrollPane(routeStopsList);
         listScroller.setPreferredSize(new Dimension(400, 300));
 
@@ -636,36 +746,35 @@ public class UserInterface {
 
         JButton makeRouteBtn = new JButton("Calculate Route");
         makeRouteBtn.setFont(new Font("SansSerif", Font.BOLD, 20));
-        makeRouteBtn.setBackground(new Color(200, 230, 255)); // Light blue color
+        makeRouteBtn.setBackground(new Color(200, 230, 255));
         makeRouteBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // --- GRAPH EDGE MODIFICATION SECTION ---
+        //   Edge management controls  
         JLabel edgeLabel = new JLabel("Add Connection (Edge)");
         edgeLabel.setFont(boldFont);
         edgeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JComboBox<String> edgeFromDrop = new JComboBox<>();
-        JComboBox<String> edgeToDrop = new JComboBox<>();
+        JComboBox<String> edgeToDrop   = new JComboBox<>();
         edgeFromDrop.setFont(largeFont);
         edgeToDrop.setFont(largeFont);
         edgeFromDrop.setMaximumSize(new Dimension(400, 40));
         edgeToDrop.setMaximumSize(new Dimension(400, 40));
 
-        // Populate from/to dropdowns for managing graph edges
+        // Populate both edge dropdowns from the station list
         for (BusStationClass s : sManager.stationList) {
             edgeFromDrop.addItem(s.getName());
             edgeToDrop.addItem(s.getName());
         }
 
-        JButton addEdgeBtn = new JButton("Add Connect");
-        addEdgeBtn.setFont(largeFont);
-        addEdgeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-
+        JButton addEdgeBtn    = new JButton("Add Connect");
         JButton removeEdgeBtn = new JButton("Remove Connection");
+        addEdgeBtn.setFont(largeFont);
         removeEdgeBtn.setFont(largeFont);
+        addEdgeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         removeEdgeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Assemble the rest of the control panel
+        // Assemble all controls into the controlPanel
         controlPanel.add(routeLabel);
         controlPanel.add(Box.createVerticalStrut(10));
         controlPanel.add(stationDropDown);
@@ -678,7 +787,7 @@ public class UserInterface {
         controlPanel.add(Box.createVerticalStrut(15));
         controlPanel.add(makeRouteBtn);
         controlPanel.add(Box.createVerticalStrut(30));
-        controlPanel.add(new JSeparator()); // Horizontal line separator
+        controlPanel.add(new JSeparator());
         controlPanel.add(Box.createVerticalStrut(20));
         controlPanel.add(edgeLabel);
         controlPanel.add(Box.createVerticalStrut(10));
@@ -692,22 +801,20 @@ public class UserInterface {
         controlPanel.add(Box.createVerticalStrut(5));
         controlPanel.add(removeEdgeBtn);
 
-        // --- RESULTS PANEL SETUP ---
+        //   Results sub panel  
         JPanel resultsPanel = new JPanel(new BorderLayout(10, 10));
         resultsPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
         JLabel resultsHeader = new JLabel("Route Itinerary", SwingConstants.CENTER);
         resultsHeader.setFont(new Font("SansSerif", Font.BOLD, 24));
 
-        // Text area to display final calculations
         JTextArea resultsTextArea = new JTextArea();
         resultsTextArea.setFont(new Font("SansSerif", Font.PLAIN, 20));
-        resultsTextArea.setEditable(false); // Make it read-only
+        resultsTextArea.setEditable(false);
         resultsTextArea.setLineWrap(true);
-        resultsTextArea.setWrapStyleWord(true); // Wrap at word boundaries, not mid-word
+        resultsTextArea.setWrapStyleWord(true);
         JScrollPane resultsScroller = new JScrollPane(resultsTextArea);
 
-        // Button to flip back to the building controls
         JButton backBtn = new JButton("Back to Route Builder");
         backBtn.setFont(boldFont);
         backBtn.setBackground(new Color(255, 200, 200));
@@ -716,39 +823,33 @@ public class UserInterface {
         resultsPanel.add(resultsScroller, BorderLayout.CENTER);
         resultsPanel.add(backBtn, BorderLayout.SOUTH);
 
-        // Add both panels to the CardLayout container
+        // Register both sub panels with the left card layout
         leftCardPanel.add(controlPanel, "CONTROLS");
         leftCardPanel.add(resultsPanel, "RESULTS");
 
-        // The center panel handles drawing the custom map/graph
+        // The graph canvas goes in the centre of the main route panel
         GraphPanel centerPanel = new GraphPanel();
-
-        // Add the left menu and center map to the main layout
         routePan.add(leftCardPanel, BorderLayout.WEST);
         routePan.add(centerPanel, BorderLayout.CENTER);
 
-        // --- ACTION LISTENERS (BUTTON BEHAVIORS) ---
+        //   Action Listeners  
 
-        // Adds the currently selected station to the route list
-        addBtn.addActionListener(e -> {
+        // Add the selected station name to the stop list
+        addBtn.addActionListener(e  -> {
             String selected = (String) stationDropDown.getSelectedItem();
-            if (selected != null) {
-                routeStopsModel.addElement(selected);
-            }
+            if (selected != null) routeStopsModel.addElement(selected);
         });
 
-        // Removes the highlighted station from the route list
-        removeBtn.addActionListener(e -> {
-            int selectedIdx = routeStopsList.getSelectedIndex();
-            if (selectedIdx != -1) {
-                routeStopsModel.remove(selectedIdx);
-            }
+        // Remove the highlighted stop from the list
+        removeBtn.addActionListener(e  -> {
+            int idx = routeStopsList.getSelectedIndex();
+            if (idx !=  1) routeStopsModel.remove(idx);
         });
 
-        // Removes an edge (road/connection) between two stations
-        removeEdgeBtn.addActionListener(e -> {
+        // Remove an edge (road connection) between two stations
+        removeEdgeBtn.addActionListener(e  -> {
             String fromName = (String) edgeFromDrop.getSelectedItem();
-            String toName = (String) edgeToDrop.getSelectedItem();
+            String toName   = (String) edgeToDrop.getSelectedItem();
 
             if (fromName == null || toName == null || fromName.equals(toName)) {
                 JOptionPane.showMessageDialog(frame, "Select two different valid stations.");
@@ -758,25 +859,27 @@ public class UserInterface {
             Node n1 = routeGraph.getNodeByName(fromName);
             Node n2 = routeGraph.getNodeByName(toName);
 
-            // Prevent NullPointerException if the station was deleted from the system
+            // Guard against a station that was deleted without refreshing dropdowns
             if (n1 == null || n2 == null) {
                 JOptionPane.showMessageDialog(frame,
-                        "Error: One of these stations no longer exists.\nPlease close and reopen the Route Builder to refresh the dropdown lists.",
+                        "Error: One of these stations no longer exists.\n"
+                        + "Please close and reopen the Route Builder to refresh the lists.",
                         "Station Not Found", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
             routeGraph.removeEdge(n1, n2);
-            routeGraph.rewriteCSV("Project/Route/WeightedGraph.csv"); 
-            JOptionPane.showMessageDialog(frame, "Connection severed and saved.");
 
-            centerPanel.repaint(); // Redraw map to reflect missing connection
+            //Corrected typo "WeigthedGraph.csv" -> "WeightedGraph.csv"
+            routeGraph.rewriteCSV("Project/Route/WeightedGraph.csv");
+            JOptionPane.showMessageDialog(frame, "Connection severed and saved.");
+            centerPanel.repaint();
         });
 
-        // Adds an edge (road/connection) between two stations
-        addEdgeBtn.addActionListener(e -> {
+        // Add an edge (road connection) between two stations
+        addEdgeBtn.addActionListener(e  -> {
             String fromName = (String) edgeFromDrop.getSelectedItem();
-            String toName = (String) edgeToDrop.getSelectedItem();
+            String toName   = (String) edgeToDrop.getSelectedItem();
 
             if (fromName == null || toName == null || fromName.equals(toName)) {
                 JOptionPane.showMessageDialog(frame, "Cannot connect a station to itself.");
@@ -788,12 +891,13 @@ public class UserInterface {
 
             if (n1 == null || n2 == null) {
                 JOptionPane.showMessageDialog(frame,
-                        "Error: One of these stations no longer exists.\nPlease close and reopen the Route Builder to refresh the dropdown lists.",
+                        "Error: One of these stations no longer exists.\n"
+                        + "Please close and reopen the Route Builder to refresh the lists.",
                         "Station Not Found", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // Check if the edge already exists to prevent duplicate lines
+            // Prevent adding a duplicate connection
             boolean alreadyConnected = false;
             for (Edge edge : n1.getEdges()) {
                 if (edge.getTo().equals(n2)) {
@@ -801,54 +905,53 @@ public class UserInterface {
                     break;
                 }
             }
-
             if (alreadyConnected) {
                 JOptionPane.showMessageDialog(frame, "These stations are already connected!");
                 return;
             }
 
             routeGraph.addEdge(n1, n2);
-            // FIX: Fixed typo in filename here as well
             routeGraph.appendEdgeToCSV(fromName, toName, "Project/Route/WeightedGraph.csv");
             JOptionPane.showMessageDialog(frame,
                     "Road connected between " + fromName + " and " + toName + " and saved!");
-
-            centerPanel.repaint(); // Redraw map to show new connection
+            centerPanel.repaint();
         });
 
-        // Flips the CardLayout back to the controls view
-        backBtn.addActionListener(e -> leftLayout.show(leftCardPanel, "CONTROLS"));
+        // Return from the results screen to the route builder
+        backBtn.addActionListener(e  -> leftLayout.show(leftCardPanel, "CONTROLS"));
 
-        // CORE LOGIC: Calculates the actual path and fuel statistics
-        makeRouteBtn.addActionListener(e -> {
+        // Calculate and display the full route itinerary
+        makeRouteBtn.addActionListener(e  -> {
             if (routeStopsModel.size() < 2) {
-                JOptionPane.showMessageDialog(frame, "Please add at least 2 stations to the list to create a route.");
+                JOptionPane.showMessageDialog(frame,
+                        "Please add at least 2 stations to the list to create a route.");
                 return;
             }
 
             java.util.List<Node> finalRoute = new ArrayList<>();
             double totalDistance = 0.0;
 
-            // Loop through each consecutive pair of stations in the user's list
-            for (int i = 0; i < routeStopsModel.size() - 1; i++) {
+            // Process each leg: from stop i to stop i+1
+            for (int i = 0; i < routeStopsModel.size()   -1; i++) {
                 Node currentStation = routeGraph.getNodeByName(routeStopsModel.get(i));
-                Node nextStation = routeGraph.getNodeByName(routeStopsModel.get(i + 1));
+                Node nextStation    = routeGraph.getNodeByName(routeStopsModel.get(i + 1));
 
-                // Ask the routePlanner (Dijkstra/A* algorithm likely) for the shortest path
-                java.util.List<Node> legPath = routePlanner.getShortestPath(currentStation, nextStation);
+                java.util.List<Node> legPath =
+                        routePlanner.getShortestPath(currentStation, nextStation);
 
-                // FIX: Added 'legPath == null' safeguard
-                if (legPath == null || legPath.isEmpty()) {
+                // If no path exists between these two stops, abort and report
+                if (legPath.isEmpty()) {
                     JOptionPane.showMessageDialog(frame,
-                            "Pathfinding failed!\n\nThe bus gets stuck at: " + currentStation.getStation().getName() +
-                                    "\nIt cannot reach: " + nextStation.getStation().getName() +
-                                    "\n\nPlease add a connecting edge to complete this route.",
+                            "Pathfinding failed!\n\n"
+                            + "The bus gets stuck at: " + currentStation.getStation().getName()
+                            + "\nIt cannot reach: " + nextStation.getStation().getName()
+                            + "\n\nPlease add a connecting edge to complete this route.",
                             "Route Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
-                // Calculate the distance of this specific leg by checking edge weights
-                for (int j = 0; j < legPath.size() - 1; j++) {
+                // Sum the edge weights along this leg
+                for (int j = 0; j < legPath.size()   -1; j++) {
                     Node a = legPath.get(j);
                     Node b = legPath.get(j + 1);
                     for (Edge edge : a.getEdges()) {
@@ -859,99 +962,112 @@ public class UserInterface {
                     }
                 }
 
-                // FIX: Used subList instead of .remove(0). 
-                // If legPath is an immutable list, .remove(0) throws an UnsupportedOperationException.
-                // We skip the first node on subsequent legs so we don't list the same station twice (e.g. A->B, B->C).
-                if (i > 0 && !legPath.isEmpty()) {
-                    finalRoute.addAll(legPath.subList(1, legPath.size()));
-                } else {
-                    finalRoute.addAll(legPath);
-                }
+                // Remove the first node of legs after the first to avoid duplicating
+                // intermediate stations where legs join
+                if (i > 0) legPath.remove(0);
+                finalRoute.addAll(legPath);
             }
 
-            // Grab coordinates for heading calculation
+            // Overall heading: from the very first stop to the very last
             Node firstStation = routeGraph.getNodeByName(routeStopsModel.firstElement());
-            Node lastStation = routeGraph.getNodeByName(routeStopsModel.lastElement());
+            Node lastStation  = routeGraph.getNodeByName(routeStopsModel.lastElement());
 
-            double startLat = firstStation.getStation().getLatitude();
-            double startLon = firstStation.getStation().getLongitude();
-            double endLat = lastStation.getStation().getLatitude();
-            double endLon = lastStation.getStation().getLongitude();
+            String overallHeading = routePlanner.calculateHeading(
+                    firstStation.getStation().getLatitude(),
+                    firstStation.getStation().getLongitude(),
+                    lastStation.getStation().getLatitude(),
+                    lastStation.getStation().getLongitude());
 
-            String overallHeading = routePlanner.calculateHeading(startLat, startLon, endLat, endLon);
-
-            // Calculate physics and fuel limits based on chosen bus
+            // Retrieve the selected bus's performance specs
             int selectedBusIdx = busDropdown.getSelectedIndex();
-            BusClass selectedBus = (BusClass) bManager.busList.get(selectedBusIdx);
+            BusClass selectedBus = bManager.busList.get(selectedBusIdx);
 
-            double speed = selectedBus.getCruiseSpeed();
-            double burnRate = selectedBus.getFuelBurnRate();
-            double capacity = selectedBus.getFuelCapacity();
+            double speed    = selectedBus.getCruiseSpeed();   // mph
+            double burnRate = selectedBus.getFuelBurnRate();  // gallons/hour
+            double capacity = selectedBus.getFuelCapacity();  // gallons
 
-            // Prevent division by zero if speed is 0
-            double timeRequired = speed > 0 ? totalDistance / speed : 0;
-            // Note: This assumes burnRate is in 'gallons per hour'. If it is MPG, it should be (totalDistance / burnRate)
-            double fuelRequired = timeRequired * burnRate; 
+            // Derived values
+            double timeRequired = speed > 0 ? totalDistance / speed : 0; // hours
+            double fuelRequired = timeRequired * burnRate;                 // gallons
 
+            // Route is approved only if the bus can physically complete it
             boolean canComplete = (fuelRequired <= capacity) && (speed > 0);
 
-            // Build the formatted results string
+            // Build the itinerary string
             StringBuilder sb = new StringBuilder();
-            sb.append("Heading: ").append(overallHeading);
-            sb.append("\nTotal Distance: ").append(String.format("%.2f", totalDistance)).append(" miles\n");
-            sb.append("Bus Selected: ").append(selectedBus.getMake()).append(" ").append(selectedBus.getModel()).append("\n");
+            sb.append("Heading: ").append(overallHeading).append("\n");
+            sb.append("Total Distance: ").append(String.format("%.2f", totalDistance)).append(" miles\n");
+            sb.append("Bus Selected: ")
+              .append(selectedBus.getMake()).append(" ").append(selectedBus.getModel()).append("\n");
             sb.append("Est. Trip Time: ").append(String.format("%.2f", timeRequired)).append(" hours\n");
             sb.append("Est. Fuel Required: ").append(String.format("%.2f", fuelRequired)).append(" gallons\n");
             sb.append("Fuel Capacity: ").append(String.format("%.2f", capacity)).append(" gallons\n\n");
-            
+
             if (canComplete) {
                 sb.append("ROUTE APPROVED\n");
+            } else if (speed <= 0) {
+                sb.append("ROUTE FAILED (Bus cruise speed is 0)\n");
             } else {
-                if (speed <= 0) {
-                    sb.append("ROUTE FAILED (Bus cruise speed is 0)\n");
-                } else {
-                    sb.append("ROUTE FAILED (Insufficient Fuel Capacity)\n");
-                }
+                sb.append("ROUTE FAILED (Insufficient Fuel Capacity)\n");
             }
-            sb.append("--\n\n");
 
-            // Print the final station-by-station itinerary
+            sb.append("  \n\n");
+
+            // List every stop in order
             for (int i = 0; i < finalRoute.size(); i++) {
                 sb.append("Stop ").append(i + 1).append(": \n");
                 sb.append("   ").append(finalRoute.get(i).getStation().getName()).append("\n\n");
             }
 
-            // Display results and swap the CardLayout view
             resultsTextArea.setText(sb.toString());
             leftLayout.show(leftCardPanel, "RESULTS");
         });
-        
+
         return routePan;
     }
 
+    // Graph Visualisation Inner Class
+
     /**
-     * Inner class responsible for drawing the nodes and edges on a custom 2D canvas.
+     * A custom JPanel that draws the current state of the route graph.
+     *
+     * Rendering steps:
+     * 
+     *   Compute the bounding box (min/max lat and lon) of all stations.
+     *   Map each station's geographic coordinates to pixel coordinates
+     *       within the panel, applying padding on all sides.
+     *   Draw edges as grey lines with the distance weight labelled at the
+     *       midpoint.
+     *   Draw each station as a red dot (or ⛽ emoji for refuel stations)
+     *       with its name and coordinates.
+     * 
      */
     private class GraphPanel extends JPanel {
 
+        /** Sets the background to dark grey for good contrast. */
         public GraphPanel() {
             setBackground(Color.DARK_GRAY);
         }
 
+        /**
+         * Called by Swing whenever this panel needs to be redrawn.
+         * Renders edges first (so nodes appear on top), then nodes.
+         *
+         */
         @Override
         protected void paintComponent(Graphics g) {
-            super.paintComponent(g); // Always call super to ensure proper rendering
+            super.paintComponent(g);
 
             Graphics2D g2d = (Graphics2D) g;
-            // Enable anti-aliasing for smooth lines and text
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            // Enable anti aliasing for smoother lines and text
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                                 RenderingHints.VALUE_ANTIALIAS_ON);
 
-            if (routeGraph.vertices == null || routeGraph.vertices.isEmpty())
-                return;
+            if (routeGraph.vertices == null || routeGraph.vertices.isEmpty()) return;
 
-            // Step 1: Find the bounding box (Min/Max Lat and Lon) to dynamically scale the map
-            double minLat = Double.MAX_VALUE, maxLat = -Double.MAX_VALUE;
-            double minLon = Double.MAX_VALUE, maxLon = -Double.MAX_VALUE;
+            // Find the geographic bounding box so we can scale to fit the panel
+            double minLat = Double.MAX_VALUE, maxLat =  Double.MAX_VALUE;
+            double minLon = Double.MAX_VALUE, maxLon =  Double.MAX_VALUE;
 
             for (Node n : routeGraph.vertices) {
                 double lat = n.getStation().getLatitude();
@@ -962,212 +1078,202 @@ public class UserInterface {
                 if (lon > maxLon) maxLon = lon;
             }
 
-            // Define margins so dots don't draw exactly on the edge of the screen
-            int paddingX = 150;
-            int paddingY = 60;
-            int usableWidth = getWidth() - (2 * paddingX);
-            int usableHeight = getHeight() - (2 * paddingY);
+            // Padding keeps station labels from being clipped at the edges
+            int paddingX   = 150;
+            int paddingY   = 60;
+            int usableWidth  = getWidth()  -  (2 * paddingX);
+            int usableHeight = getHeight()  - (2 * paddingY);
 
-            g2d.setStroke(new BasicStroke(2)); // Thicker lines for roads
+            g2d.setStroke(new BasicStroke(2));
 
-            // Step 2: Draw the edges (Lines) FIRST so they appear underneath the nodes
+            //  Draw edges 
             for (Node n : routeGraph.vertices) {
-                int x1 = mapLonToX(n.getStation().getLongitude(), minLon, maxLon, usableWidth) + paddingX;
-                int y1 = mapLatToY(n.getStation().getLatitude(), minLat, maxLat, usableHeight) + paddingY;
+                int x1 = mapLonToX(n.getStation().getLongitude(), minLon, maxLon, usableWidth)  + paddingX;
+                int y1 = mapLatToY(n.getStation().getLatitude(),  minLat, maxLat, usableHeight) + paddingY;
 
                 for (Edge e : n.getEdges()) {
                     Node target = e.getTo();
-                    int x2 = mapLonToX(target.getStation().getLongitude(), minLon, maxLon, usableWidth) + paddingX;
-                    int y2 = mapLatToY(target.getStation().getLatitude(), minLat, maxLat, usableHeight) + paddingY;
+                    int x2 = mapLonToX(target.getStation().getLongitude(), minLon, maxLon, usableWidth)  + paddingX;
+                    int y2 = mapLatToY(target.getStation().getLatitude(),  minLat, maxLat, usableHeight) + paddingY;
 
-                    // Draw connecting line
+                    // Draw the line
                     g2d.setColor(Color.LIGHT_GRAY);
                     g2d.drawLine(x1, y1, x2, y2);
 
-                    // Calculate midpoint of the line to draw the distance text
+                    // Label the weight at the midpoint of the edge
                     int midX = (x1 + x2) / 2;
                     int midY = (y1 + y2) / 2;
-
                     g2d.setColor(Color.WHITE);
                     g2d.setFont(new Font("SansSerif", Font.BOLD, 14));
-                    String weightText = String.format("%.1f mi", e.getWeight());
-                    g2d.drawString(weightText, midX, midY - 5);
+                    g2d.drawString(String.format("%.1f mi", e.getWeight()), midX, midY - 5);
                 }
             }
 
-            // Step 3: Draw the Nodes (Stations) SECOND so they sit on top of the lines
+            //  Draw nodes 
             int nodeSize = 16;
             for (Node n : routeGraph.vertices) {
-                int x = mapLonToX(n.getStation().getLongitude(), minLon, maxLon, usableWidth) + paddingX;
-                int y = mapLatToY(n.getStation().getLatitude(), minLat, maxLat, usableHeight) + paddingY;
+                int x = mapLonToX(n.getStation().getLongitude(), minLon, maxLon, usableWidth)  + paddingX;
+                int y = mapLatToY(n.getStation().getLatitude(),  minLat, maxLat, usableHeight) + paddingY;
 
-                // Special icon for Refuel Stations, regular dot for standard stations
                 if (n.getStation() instanceof RefuelBusStation) {
+                    // Refuel stations use a fuel pump emoji instead of a coloured dot
                     g2d.setFont(new Font("SansSerif", Font.PLAIN, 20));
                     g2d.drawString("⛽", x - 12, y + 7);
                 } else {
-                    g2d.setColor(new Color(200, 50, 50)); // Red dot
+                    // Regular stations are drawn as filled red circles
+                    g2d.setColor(new Color(200, 50, 50));
                     g2d.fillOval(x - (nodeSize / 2), y - (nodeSize / 2), nodeSize, nodeSize);
                 }
 
-                // Draw Station Name
+                // Station name
                 g2d.setColor(Color.WHITE);
                 g2d.setFont(new Font("SansSerif", Font.BOLD, 16));
                 g2d.drawString(n.getStation().getName(), x + 15, y + 4);
 
-                // Draw Coordinates slightly smaller and below the name
+                // Coordinates shown in smaller text beneath the name
                 g2d.setColor(Color.LIGHT_GRAY);
                 g2d.setFont(new Font("SansSerif", Font.PLAIN, 12));
-                String coordText = String.format("Lat: %.3f, Lon: %.3f",
-                        n.getStation().getLatitude(), n.getStation().getLongitude());
-                g2d.drawString(coordText, x + 15, y + 20);
+                g2d.drawString(
+                        String.format("Lat: %.3f, Lon: %.3f",
+                                n.getStation().getLatitude(),
+                                n.getStation().getLongitude()),
+                        x + 15, y + 20);
             }
         }
 
         /**
-         * Normalizes a Longitude value to an X pixel coordinate.
+         * Maps a longitude value to a horizontal pixel coordinate within the
+         * usable drawing area.
+         *
+         * lon    The longitude to map.
+         * minLon The minimum longitude in the dataset (left edge).
+         * maxLon The maximum longitude in the dataset (right edge).
+         * width  The pixel width of the drawing area.
+         * return The x pixel coordinate.
          */
         private int mapLonToX(double lon, double minLon, double maxLon, int width) {
-            // Prevent divide-by-zero if there's only one station or all have identical longitude
-            if (maxLon == minLon) return width / 2;
-            
-            // Percentage formula: (current - min) / (max - min)
+            if (maxLon == minLon) return width / 2; // Single station: centre it
             return (int) (((lon - minLon) / (maxLon - minLon)) * width);
         }
 
         /**
-         * Normalizes a Latitude value to a Y pixel coordinate.
-         * Note: Y is inverted (height - value) because screen pixel Y-coordinates 
-         * increase top-to-bottom, while map Latitude increases bottom-to-top (South to North).
+         * Maps a latitude value to a vertical pixel coordinate within the
+         * usable drawing area.  Y is inverted because screen coordinates
+         * increase downward while latitude increases upward.
+         *
+         * lat    The latitude to map.
+         * minLat The minimum latitude in the dataset (bottom of map).
+         * maxLat The maximum latitude in the dataset (top of map).
+         * height The pixel height of the drawing area.
+         * return The y pixel coordinate.
          */
         private int mapLatToY(double lat, double minLat, double maxLat, int height) {
-            // Prevent divide-by-zero
             if (maxLat == minLat) return height / 2;
-            
-            return height - (int) (((lat - minLat) / (maxLat - minLat)) * height);
+            return height -  (int)(((lat - minLat) / (maxLat - minLat)) * height);
         }
     }
+
+    // Manage Bus Panel
+
     /**
-     * Constructs the Bus Management panel.
-     * Uses a BorderLayout: Table in the Center, Form on the West (Left).
+     * Constructs and returns the Manage Bus screen.
+     *
+     * Layout:
+     * 
+     *   CENTER – a JTable listing all buses with their seven attributes.
+     *   LEFT   – input fields pre populated when a row is selected, plus
+     *                Submit, New Bus, and Remove buttons.
+     * 
+     *
+     * return The configured bus management JPanel.
      */
     private JPanel manageBus() {
-        // The main container for this section of the app
         JPanel buspanel = new JPanel(new BorderLayout());
 
-        //  FONT SETTINGS 
         Font labelFont = new Font("SansSerif", Font.BOLD, 18);
         Font inputFont = new Font("SansSerif", Font.PLAIN, 18);
         Font tableFont = new Font("SansSerif", Font.PLAIN, 16);
 
-        //  TABLE INITIALIZATION 
-        // Define the columns based on Bus properties
-        String tablename[] = { "Make", "Model", "Type", "Fuel Type", "Fuel Capacity", "Fuel Burn Rate", "Cruise Speed" };
-        
-        // DefaultTableModel allows us to modify rows (add/remove/update) at runtime
+        // Seven column table matching displayBusInfo() order
+        String[] tablename = {"Make", "Model", "Type", "Fuel Type",
+                              "Fuel Capacity", "Fuel Burn Rate", "Cruise Speed"};
         DefaultTableModel busTable = new DefaultTableModel(tablename, 0);
         JTable table = new JTable(busTable);
-
-        // Styling the table for better visibility
         table.setFont(tableFont);
         table.setRowHeight(30);
         table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 16));
-
-        // JScrollPane handles overflow if the list of buses is long
         JScrollPane pane = new JScrollPane(table);
 
-        //  DATA LOADING 
-        // Iterate through the backend bus list and populate the UI table
-        for (Object b : bManager.busList) {
-            // Assume BusClass has a method that returns a comma-separated string of its data
-            String s = ((BusClass) b).displayBusInfo();
-            String[] col = s.split(", ");
-            
-            // Populate the row using the split data
-            busTable.addRow(new Object[] { col[0], col[1], col[2], col[3], col[4], col[5], col[6] });
+        // Populate the table from the live busList
+        for (BusClass b : bManager.busList) {
+            String[] col = b.displayBusInfo().split(", ");
+            busTable.addRow(new Object[]{col[0], col[1], col[2], col[3], col[4], col[5], col[6]});
         }
 
-        // Add the table to the central area of the panel
         buspanel.add(pane, BorderLayout.CENTER);
 
-        //  FORM LAYOUT SETUP (LEFT SIDE) 
+        //   Input panel (left side)  
         JPanel busWrapper = new JPanel();
         busWrapper.setLayout(new BoxLayout(busWrapper, BoxLayout.Y_AXIS));
         busWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        Dimension boxSize = new Dimension(800, 40); // Standard sizing for input boxes
+        Dimension boxSize = new Dimension(800, 40);
 
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
 
-        // Define individual input components
-        JTextField makeBox = new JTextField(15);
-        JTextField modelBox = new JTextField(15);
-
-        // Dropdowns (JComboBox) for fixed choices
-        JComboBox<String> typeBox = new JComboBox<>(new String[] { "CityBus", "LongDistanceBus" });
-        typeBox.setFont(inputFont);
-        typeBox.setMaximumSize(boxSize);
-
-        JComboBox<String> fuelTypeBox = new JComboBox<>(new String[] { "Gas", "Diesel" });
-        fuelTypeBox.setFont(inputFont);
-        fuelTypeBox.setMaximumSize(boxSize);
-
-        JTextField cruiseSpeedBox = new JTextField(15);
+        JTextField makeBox         = new JTextField(15);
+        JTextField modelBox        = new JTextField(15);
+        JTextField cruiseSpeedBox  = new JTextField(15);
         JTextField fuelBurnRateBox = new JTextField(15);
         JTextField fuelCapacityBox = new JTextField(15);
 
-        //  ASSEMBLING THE FORM 
-        // autoAdd is a helper method (defined below) to add Label + Component + Strut (spacing)
-        autoAdd(inputPanel, new JLabel("Make:"), makeBox, labelFont, boxSize);
-        autoAdd(inputPanel, new JLabel("Model:"), modelBox, labelFont, boxSize);
-        autoAdd(inputPanel, new JLabel("Type:"), typeBox, labelFont, boxSize);
+        JComboBox<String> typeBox     = new JComboBox<>(new String[]{"CityBus", "LongDistanceBus"});
+        JComboBox<String> fuelTypeBox = new JComboBox<>(new String[]{"Gas", "Diesel"});
+        typeBox.setFont(inputFont);
+        typeBox.setMaximumSize(boxSize);
+        fuelTypeBox.setFont(inputFont);
+        fuelTypeBox.setMaximumSize(boxSize);
 
-        // Manual addition for Fuel Type to handle the JComboBox specifically
-        inputPanel.add(new JLabel("Fuel Type:") {
-            { setFont(labelFont); }
-        });
+        autoAdd(inputPanel, new JLabel("Make:"),         makeBox,         labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Model:"),        modelBox,        labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Type:"),         typeBox,         labelFont, boxSize);
+
+        // Fuel Type is a combo box so it needs manual layout (not autoAdd)
+        inputPanel.add(new JLabel("Fuel Type:") {{ setFont(labelFont); }});
         inputPanel.add(fuelTypeBox);
-        inputPanel.add(Box.createVerticalStrut(10)); // Vertical spacing
+        inputPanel.add(Box.createVerticalStrut(10));
 
-        autoAdd(inputPanel, new JLabel("Fuel Capacity:"), fuelCapacityBox, labelFont, boxSize);
-        autoAdd(inputPanel, new JLabel("Fuel Burn Rate:"), fuelBurnRateBox, labelFont, boxSize);
-        autoAdd(inputPanel, new JLabel("Cruise Speed:"), cruiseSpeedBox, labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Fuel Capacity:"),  fuelCapacityBox,  labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Fuel Burn Rate:"), fuelBurnRateBox,  labelFont, boxSize);
+        autoAdd(inputPanel, new JLabel("Cruise Speed:"),   cruiseSpeedBox,   labelFont, boxSize);
 
-        //  BUTTONS 
-        JPanel buttonPanel = new JPanel(new FlowLayout());
+        //   Buttons  
         JButton submitBus = new JButton("Submit");
         JButton removeBus = new JButton("Remove");
-        JButton newBus = new JButton("New Bus");
-
+        JButton newBus    = new JButton("New Bus");
         submitBus.setFont(labelFont);
         removeBus.setFont(labelFont);
         newBus.setFont(labelFont);
 
+        JPanel buttonPanel = new JPanel(new FlowLayout());
         buttonPanel.add(submitBus);
         buttonPanel.add(newBus);
         buttonPanel.add(removeBus);
 
-        // Combine input fields and buttons into the wrapper
         busWrapper.add(inputPanel);
         busWrapper.add(buttonPanel);
-
-        // Place the entire form on the West (Left) side
         buspanel.add(busWrapper, BorderLayout.WEST);
 
-        //  EVENT LISTENERS 
-
-        // Listener: Sync Table Selection -> Form Fields
-        table.getSelectionModel().addListSelectionListener(e -> {
+        //   Row selection: populate input fields from selected bus  
+        table.getSelectionModel().addListSelectionListener(e  -> {
             if (!e.getValueIsAdjusting()) {
                 selectedRow = table.getSelectedRow();
-                if (selectedRow != -1) {
-                    // Get the actual Bus object from the manager's list
-                    BusClass selected = (BusClass) bManager.busList.get(selectedRow);
-                    
-                    // Update the text boxes with the object's data
+                if (selectedRow !=  1) {
+                    BusClass selected = bManager.busList.get(selectedRow);
                     makeBox.setText(selected.getMake());
                     modelBox.setText(selected.getModel());
                     typeBox.setSelectedItem(selected.getType());
+                    fuelTypeBox.setSelectedItem(selected.getFuelType());
                     cruiseSpeedBox.setText(String.valueOf(selected.getCruiseSpeed()));
                     fuelBurnRateBox.setText(String.valueOf(selected.getFuelBurnRate()));
                     fuelCapacityBox.setText(String.valueOf(selected.getFuelCapacity()));
@@ -1175,9 +1281,9 @@ public class UserInterface {
             }
         });
 
-        // Listener: Handle "Submit" (Update existing bus)
-        submitBus.addActionListener(e -> {
-            if (selectedRow == -1) {
+        //   Submit: validate and save changes to the selected bus  
+        submitBus.addActionListener(e  -> {
+            if (selectedRow ==  1) {
                 JOptionPane.showMessageDialog(frame, "Please select a bus first.");
                 return;
             }
@@ -1185,60 +1291,59 @@ public class UserInterface {
             StringBuilder errorLog = new StringBuilder();
             boolean isValid = true;
 
-            // Clean input values
-            String makeVal = makeBox.getText().trim();
-            String modelVal = modelBox.getText().trim();
-            String typeVal = typeBox.getSelectedItem().toString();
+            String makeVal     = makeBox.getText().trim();
+            String modelVal    = modelBox.getText().trim();
+            String typeVal     = typeBox.getSelectedItem().toString();
             String fuelTypeVal = fuelTypeBox.getSelectedItem().toString();
-            String speedTxt = cruiseSpeedBox.getText().trim();
-            String burnTxt = fuelBurnRateBox.getText().trim();
-            String capTxt = fuelCapacityBox.getText().trim();
+            String speedTxt    = cruiseSpeedBox.getText().trim();
+            String burnTxt     = fuelBurnRateBox.getText().trim();
+            String capTxt      = fuelCapacityBox.getText().trim();
 
-            // VALIDATION: Check for duplicate Make/Model in the fleet
+            // Check for duplicate make+model (ignore the currently selected row)
             for (int i = 0; i < bManager.busList.size(); i++) {
-                if (i == selectedRow) continue; // Skip the bus we are currently editing
-
-                BusClass existingBus = (BusClass) bManager.busList.get(i);
-                if (existingBus.getMake().equalsIgnoreCase(makeVal) &&
-                    existingBus.getModel().equalsIgnoreCase(modelVal)) {
-                    errorLog.append("- A bus with the make '").append(makeVal)
+                if (i == selectedRow) continue;
+                BusClass existing = bManager.busList.get(i);
+                if (existing.getMake().equalsIgnoreCase(makeVal) &&
+                    existing.getModel().equalsIgnoreCase(modelVal)) {
+                    errorLog.append("  A bus with make '").append(makeVal)
                             .append("' and model '").append(modelVal).append("' already exists.\n");
                     isValid = false;
                     break;
                 }
             }
 
-            // VALIDATION: Alphanumeric checks (No special symbols in names)
-            String alphaNumRegex = "^[a-zA-Z0-9 ]+$";
+            // Make, model, and type must contain only letters, digits, and spaces
+            String alphaNumRegex = "^[a zA Z0 9 ]+$";
             if (!makeVal.matches(alphaNumRegex)) {
-                errorLog.append("- 'Make' has invalid symbols or is empty.\n");
+                errorLog.append("  'Make' has invalid symbols or is empty.\n");
                 isValid = false;
             }
             if (!modelVal.matches(alphaNumRegex)) {
-                errorLog.append("- 'Model' has invalid symbols or is empty.\n");
+                errorLog.append("  'Model' has invalid symbols or is empty.\n");
                 isValid = false;
             }
 
-            // VALIDATION: Numeric checks (Must be valid numbers/decimals)
-            String numericRegex = "^[0-9]*\\.?[0-9]+$";
+            // Numeric fields must be non negative numbers
+            String numericRegex = "^[0 9]*\\.?[0 9]+$";
             if (!speedTxt.matches(numericRegex)) {
-                errorLog.append("- 'Cruise Speed' must be a pure number.\n");
+                errorLog.append("  'Cruise Speed' must be a pure number.\n");
                 isValid = false;
             }
             if (!burnTxt.matches(numericRegex)) {
-                errorLog.append("- 'Fuel Burn Rate' must be a pure number.\n");
+                errorLog.append("  'Fuel Burn Rate' must be a pure number.\n");
                 isValid = false;
             }
             if (!capTxt.matches(numericRegex)) {
-                errorLog.append("- 'Fuel Capacity' must be a pure number.\n");
+                errorLog.append("  'Fuel Capacity' must be a pure number.\n");
                 isValid = false;
             }
 
             if (!isValid) {
-                JOptionPane.showMessageDialog(frame, errorLog.toString(), "Input Errors", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame, errorLog.toString(),
+                        "Input Errors", JOptionPane.ERROR_MESSAGE);
             } else {
-                // APPLY CHANGES: Update the Backend Object
-                BusClass currentBus = (BusClass) bManager.busList.get(selectedRow);
+                // Apply changes to the in memory object
+                BusClass currentBus = bManager.busList.get(selectedRow);
                 currentBus.setMake(makeVal);
                 currentBus.setModel(modelVal);
                 currentBus.setType(typeVal);
@@ -1247,45 +1352,45 @@ public class UserInterface {
                 currentBus.setFuelBurnRate(Double.parseDouble(burnTxt));
                 currentBus.setFuelCapacity(Double.parseDouble(capTxt));
 
-                // APPLY CHANGES: Update the UI Table view
-                busTable.setValueAt(makeVal, selectedRow, 0);
-                busTable.setValueAt(modelVal, selectedRow, 1);
-                busTable.setValueAt(typeVal, selectedRow, 2);
+                // Reflect changes in the table display
+                busTable.setValueAt(makeVal,     selectedRow, 0);
+                busTable.setValueAt(modelVal,    selectedRow, 1);
+                busTable.setValueAt(typeVal,     selectedRow, 2);
                 busTable.setValueAt(fuelTypeVal, selectedRow, 3);
-                busTable.setValueAt(capTxt, selectedRow, 4);
-                busTable.setValueAt(burnTxt, selectedRow, 5);
-                busTable.setValueAt(speedTxt, selectedRow, 6);
+                busTable.setValueAt(capTxt,      selectedRow, 4);
+                busTable.setValueAt(burnTxt,     selectedRow, 5);
+                busTable.setValueAt(speedTxt,    selectedRow, 6);
 
                 try {
-                    bManager.save(); // Save changes to the external file
+                    bManager.save();
                     JOptionPane.showMessageDialog(frame, "Changes Saved!");
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(frame, "Error saving: " + ex.getMessage());
+                    ex.printStackTrace();
                 }
             }
         });
 
-        // Listener: Remove the selected bus
-        removeBus.addActionListener(e -> {
+        //   Remove: delete the selected bus  
+        removeBus.addActionListener(e  -> {
             if (bManager.removeBus(selectedRow)) {
                 busTable.removeRow(selectedRow);
-                selectedRow = -1; // Reset selection
+                selectedRow =  1;
             }
         });
 
-        // Listener: Create a new Bus entry
-        newBus.addActionListener(e -> {
-            String baseMake = "Make";
+        //   New Bus: add a placeholder bus, auto resolving duplicate makes  
+        newBus.addActionListener(e  -> {
+            // Generate a unique make name by appending a counter if necessary
+            String baseMake  = "Make";
             String finalMake = baseMake;
-            int counter = 1;
+            int    counter   = 1;
 
-            // Ensure the new "placeholder" make name is unique (e.g. Make, Make1, Make2...)
             boolean duplicateFound = true;
             while (duplicateFound) {
                 duplicateFound = false;
-                for (Object b : bManager.busList) {
-                    BusClass existingBus = (BusClass) b;
-                    if (existingBus.getMake().equalsIgnoreCase(finalMake)) {
+                for (BusClass b : bManager.busList) {
+                    if (b.getMake().equalsIgnoreCase(finalMake)) {
                         duplicateFound = true;
                         finalMake = baseMake + counter;
                         counter++;
@@ -1294,7 +1399,7 @@ public class UserInterface {
                 }
             }
 
-            // Create the new object with defaults
+            // Create a blank bus with default values
             BusClass nb = new BusClass();
             nb.setMake(finalMake);
             nb.setType("CityBus");
@@ -1302,31 +1407,49 @@ public class UserInterface {
             nb.setFuelBurnRate(0.0);
             nb.setFuelCapacity(0.0);
 
-            // Add to manager list and UI table
             bManager.busList.add(nb);
-            busTable.addRow(new Object[] { nb.getMake(), nb.getModel(), nb.getType(), "Gas", 0.0, 0.0, 0.0 });
 
-            // Auto-select the new row and update the form fields
-            selectedRow = busTable.getRowCount() - 1;
+            // The original code only added 6 items and was missing
+            // Fuel Type entirely.  Now all 7 columns are included in the correct order:
+            // Make, Model, Type, Fuel Type, Fuel Capacity, Fuel Burn Rate, Cruise Speed
+            busTable.addRow(new Object[]{
+                    nb.getMake(),
+                    nb.getModel(),
+                    nb.getType(),
+                    nb.getFuelType(),       
+                    nb.getFuelCapacity(),
+                    nb.getFuelBurnRate(),
+                    nb.getCruiseSpeed()
+            });
+
+            // Auto select the new row and populate the input fields
+            selectedRow = busTable.getRowCount()  -1;
             table.setRowSelectionInterval(selectedRow, selectedRow);
 
             makeBox.setText(nb.getMake());
             modelBox.setText(nb.getModel());
-            cruiseSpeedBox.setText("0.0");
-            fuelBurnRateBox.setText("0.0");
-            fuelCapacityBox.setText("0.0");
+            typeBox.setSelectedItem(nb.getType());
+            fuelTypeBox.setSelectedItem(nb.getFuelType());
+            cruiseSpeedBox.setText(String.valueOf(nb.getCruiseSpeed()));
+            fuelBurnRateBox.setText(String.valueOf(nb.getFuelBurnRate()));
+            fuelCapacityBox.setText(String.valueOf(nb.getFuelCapacity()));
         });
 
         return buspanel;
     }
 
+    // Layout Helper
+
     /**
-     * Helper method to standardize the addition of labeled input components.
-     * * @param p The panel to add to.
-     * @param l The label for the component.
-     * @param c The component (JTextField, JComboBox, etc.).
-     * @param f The font for the label.
-     * @param d The maximum size for the component.
+     * Convenience method that applies a font to a label, sets the maximum size
+     * of a component, and adds both (plus a vertical spacer) to a panel in
+     * one call.
+     *
+     * p The panel to add to.
+     * l The label to display above the component.
+     * c The input component (text field, combo box, etc.).
+     * f The font to apply to the label.
+     * d The maximum size to assign to the component.
      */
     private void autoAdd(JPanel p, JLabel l, JComponent c, Font f, Dimension d) {
         l.setFont(f);
@@ -1334,43 +1457,42 @@ public class UserInterface {
         c.setMaximumSize(d);
         p.add(l);
         p.add(c);
-        p.add(Box.createVerticalStrut(10)); // Add consistent spacing below the input
+        p.add(Box.createVerticalStrut(10));
     }
-/*
- * Creates and returns a JPanel for managing bus stations.
- * This includes a table view of all stations and a side form for adding/editing/removing stations.
- */
+
+    // Manage Bus Station Panel
+
+    /**
+     * Constructs and returns the Manage Bus Station screen.
+     *
+     * Layout:
+     * 
+     *   CENTER – a JTable listing all stations with name, lat, lon, refuel.
+     *   LEFT   – input fields pre populated on row selection, plus Submit,
+     *                New Station, and Remove buttons.
+     * 
+     *
+     * return The configured station management JPanel}.
+     */
     private JPanel manageBusStation() {
-        // Main container using BorderLayout to separate the Table (Center) from the Form (West)
         JPanel stationpanel = new JPanel(new BorderLayout());
 
-        //  FONT DEFINITIONS 
-        // Standardizing fonts for a consistent look across the UI
         Font labelFont = new Font("SansSerif", Font.BOLD, 18);
         Font inputFont = new Font("SansSerif", Font.PLAIN, 18);
         Font tableFont = new Font("SansSerif", Font.PLAIN, 16);
 
-        //  TABLE SETUP 
-        // Define column headers for the station list
-        String[] tablename = { "Name", "Latitude", "Longitude", "Refuel?" };
-
-        // DefaultTableModel allows us to dynamically add/remove rows without recreating the JTable
+        String[] tablename = {"Name", "Latitude", "Longitude", "Refuel?"};
         stationTable = new DefaultTableModel(tablename, 0);
         JTable table = new JTable(stationTable);
-
-        // Styling the table for readability
         table.setFont(tableFont);
         table.setRowHeight(30);
         table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 16));
-        JScrollPane pane = new JScrollPane(table); // Add scrolling capability to the table
+        JScrollPane pane = new JScrollPane(table);
 
-        //  INITIAL DATA LOADING 
-        // Populate the table with existing stations from the station manager
-        for (Object st : sManager.stationList) {
-            BusStationClass station = (BusStationClass) st;
-            // Check if this station is a specific subclass to determine the "Refuel" status
+        // Populate the table from the live stationList
+        for (BusStationClass station : sManager.stationList) {
             boolean isRefuel = station instanceof RefuelBusStation;
-            stationTable.addRow(new Object[] {
+            stationTable.addRow(new Object[]{
                     station.getName(),
                     station.getLatitude(),
                     station.getLongitude(),
@@ -1378,44 +1500,32 @@ public class UserInterface {
             });
         }
 
-        // Place the scrollable table in the center of the main panel
         stationpanel.add(pane, BorderLayout.CENTER);
 
-        //  FORM UI SETUP (Left Side) 
-        // stationWrapper stacks the input fields and buttons vertically
+        //   Input panel (left side)  
         JPanel stationWrapper = new JPanel();
         stationWrapper.setLayout(new BoxLayout(stationWrapper, BoxLayout.Y_AXIS));
-        stationWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Margin padding
-        Dimension boxSize = new Dimension(800, 40); // Standardize input box size
+        stationWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        Dimension boxSize = new Dimension(800, 40);
 
-        // Create labels and text fields for station data
-        JLabel sName = new JLabel("Station Name:");
-        sName.setFont(labelFont);
-        JTextField sNameBox = new JTextField(15);
-        sNameBox.setFont(inputFont);
-        sNameBox.setMaximumSize(boxSize);
-
-        JLabel latitude = new JLabel("Latitude:");
-        latitude.setFont(labelFont);
+        JLabel     sName       = new JLabel("Station Name:");
+        JTextField sNameBox    = new JTextField(15);
+        JLabel     latitude    = new JLabel("Latitude:");
         JTextField latitudeBox = new JTextField(15);
-        latitudeBox.setFont(inputFont);
-        latitudeBox.setMaximumSize(boxSize);
-
-        JLabel longitude = new JLabel("Longitude:");
-        longitude.setFont(labelFont);
+        JLabel     longitude   = new JLabel("Longitude:");
         JTextField longitudeBox = new JTextField(15);
-        longitudeBox.setFont(inputFont);
-        longitudeBox.setMaximumSize(boxSize);
+        JCheckBox  refuelCheckBox = new JCheckBox("Is Refuel Station?");
 
-        JCheckBox refuelCheckBox = new JCheckBox("Is Refuel Station?");
+        sName.setFont(labelFont);      sNameBox.setFont(inputFont);    sNameBox.setMaximumSize(boxSize);
+        latitude.setFont(labelFont);   latitudeBox.setFont(inputFont);  latitudeBox.setMaximumSize(boxSize);
+        longitude.setFont(labelFont);  longitudeBox.setFont(inputFont); longitudeBox.setMaximumSize(boxSize);
         refuelCheckBox.setFont(labelFont);
 
-        //  ASSEMBLY OF INPUT PANEL 
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
         inputPanel.add(sName);
         inputPanel.add(sNameBox);
-        inputPanel.add(Box.createVerticalStrut(10)); // Add spacing between components
+        inputPanel.add(Box.createVerticalStrut(10));
         inputPanel.add(latitude);
         inputPanel.add(latitudeBox);
         inputPanel.add(Box.createVerticalStrut(10));
@@ -1424,40 +1534,33 @@ public class UserInterface {
         inputPanel.add(Box.createVerticalStrut(10));
         inputPanel.add(refuelCheckBox);
 
-        //  BUTTON CONTROLS 
         JButton submitStation = new JButton("Submit");
         JButton removeStation = new JButton("Remove");
-        JButton newStation = new JButton("New Station");
-
+        JButton newStation    = new JButton("New Station");
         submitStation.setFont(labelFont);
         removeStation.setFont(labelFont);
         newStation.setFont(labelFont);
 
-        // FlowLayout keeps buttons side-by-side
         JPanel buttonPanel = new JPanel(new FlowLayout());
         buttonPanel.add(submitStation);
         buttonPanel.add(removeStation);
         buttonPanel.add(newStation);
 
-        // Add inputs and buttons to the left-side wrapper
         stationWrapper.add(inputPanel);
         stationWrapper.add(buttonPanel);
         stationpanel.add(stationWrapper, BorderLayout.WEST);
 
-        //  EVENT LISTENERS 
-
-        // Listener: When a row in the table is clicked, fill the form with that station's data
-        table.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) { // Ensure we only trigger once per click
+        //   Row selection: populate input fields from selected station  
+        table.getSelectionModel().addListSelectionListener(e  -> {
+            if (!e.getValueIsAdjusting()) {
                 selectedRow = table.getSelectedRow();
-                if (selectedRow != -1) {
+                if (selectedRow !=  1) {
                     BusStationClass s = sManager.stationList.get(selectedRow);
                     sNameBox.setText(s.getName());
                     latitudeBox.setText(String.valueOf(s.getLatitude()));
                     longitudeBox.setText(String.valueOf(s.getLongitude()));
                     refuelCheckBox.setSelected(s instanceof RefuelBusStation);
                 } else {
-                    // Clear form if nothing is selected
                     sNameBox.setText("");
                     latitudeBox.setText("");
                     longitudeBox.setText("");
@@ -1466,9 +1569,9 @@ public class UserInterface {
             }
         });
 
-        // Listener: Validate and Save changes to the selected station
-        submitStation.addActionListener(e -> {
-            if (selectedRow == -1) {
+        //   Submit: validate and save changes to the selected station  
+        submitStation.addActionListener(e  -> {
+            if (selectedRow ==  1) {
                 JOptionPane.showMessageDialog(frame, "Please select a station first.");
                 return;
             }
@@ -1476,143 +1579,145 @@ public class UserInterface {
             StringBuilder errorLog = new StringBuilder();
             boolean isValid = true;
 
-            // Collect and clean input
             String nameVal = sNameBox.getText().trim();
-            String latTxt = latitudeBox.getText().trim();
-            String lonTxt = longitudeBox.getText().trim();
+            String latTxt  = latitudeBox.getText().trim();
+            String lonTxt  = longitudeBox.getText().trim();
             boolean isRefuel = refuelCheckBox.isSelected();
 
-            // VALIDATION: Check for duplicate station names (excluding the current selection)
+            // Duplicate name check (ignore the currently selected row)
             for (int i = 0; i < sManager.stationList.size(); i++) {
                 if (i == selectedRow) continue;
                 if (sManager.stationList.get(i).getName().equalsIgnoreCase(nameVal)) {
-                    errorLog.append("- Station name already exists.\n");
+                    errorLog.append("  Station name already exists.\n");
                     isValid = false;
                     break;
                 }
             }
 
-            // VALIDATION: Ensure name contains only alphanumeric characters and spaces
-            String alphaNumRegex = "^[a-zA-Z0-9 ]+$";
-            if (!nameVal.matches(alphaNumRegex)) {
-                errorLog.append("- Name has invalid symbols or is empty.\n");
+            // Station name must contain only letters, digits, spaces, and dots
+            if (!nameVal.matches("^[a zA Z0 9 .]+$")) {
+                errorLog.append("  Name has invalid symbols or is empty.\n");
                 isValid = false;
             }
 
-            // VALIDATION: Ensure Latitude is a valid number
+            // Latitude must parse as a valid decimal number
             try {
-                Double.parseDouble(latTxt); 
-            } catch (NumberFormatException e1) {
-                errorLog.append("- Latitude is incorrect (must be a valid number).\n");
+                Double.parseDouble(latTxt);
+            } catch (NumberFormatException ex) {
+                errorLog.append("  Latitude is incorrect (must be a valid number).\n");
                 isValid = false;
             }
 
-            // VALIDATION: Ensure Longitude is a valid number
+            // Longitude must parse as a valid decimal number
             try {
                 Double.parseDouble(lonTxt);
-            } catch (NumberFormatException e1) {
-                errorLog.append("- Longitude is incorrect (must be a valid number).\n");
+            } catch (NumberFormatException ex) {
+                errorLog.append("  Longitude is incorrect (must be a valid number).\n");
                 isValid = false;
             }
 
             if (!isValid) {
-                JOptionPane.showMessageDialog(frame, errorLog.toString(), "Input Errors", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame, errorLog.toString(),
+                        "Input Errors", JOptionPane.ERROR_MESSAGE);
             } else {
-                // APPLY CHANGES
                 double lat = Double.parseDouble(latTxt);
                 double lon = Double.parseDouble(lonTxt);
 
-                // Create appropriate object based on "Refuel" checkbox
-                BusStationClass newStationObj = isRefuel ? 
-                    new RefuelBusStation(nameVal, lat, lon) : 
-                    new BusStationClass(nameVal, lat, lon);
+                // Instantiate the correct subclass based on the refuel checkbox
+                BusStationClass newStationObj = isRefuel
+                        ? new RefuelBusStation(nameVal, lat, lon)
+                        : new BusStationClass(nameVal, lat, lon);
 
-                // Update Backend List and UI Table
                 sManager.stationList.set(selectedRow, newStationObj);
-                stationTable.setValueAt(nameVal, selectedRow, 0);
-                stationTable.setValueAt(latTxt, selectedRow, 1);
-                stationTable.setValueAt(lonTxt, selectedRow, 2);
+                stationTable.setValueAt(nameVal,               selectedRow, 0);
+                stationTable.setValueAt(latTxt,                selectedRow, 1);
+                stationTable.setValueAt(lonTxt,                selectedRow, 2);
                 stationTable.setValueAt(isRefuel ? "Yes" : "No", selectedRow, 3);
 
                 try {
-                    sManager.save(); // Persist changes to disk
-                    // Update the station inside the graph system as well
+                    sManager.save();
+                    // Sync the in memory graph node so the canvas redraws correctly
                     routeGraph.vertices.get(selectedRow).setStation(newStationObj);
-
-                    frame.repaint(); // Force UI refresh
+                    frame.repaint();
                     JOptionPane.showMessageDialog(frame, "Station Updated Successfully!");
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(frame, "Error saving data", "File Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(frame, "Error saving data",
+                            "File Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
 
-        // Listener: Delete the selected station
-        removeStation.addActionListener(e -> {
-            if (selectedRow == -1) {
+        removeStation.addActionListener(e  -> {
+            if (selectedRow ==  1) {
                 JOptionPane.showMessageDialog(frame, "Please select a station first.");
                 return;
             }
 
             try {
-                // Note: The logic here removes from the list twice (likely a bug in the source), 
-                // but effectively it removes the station from the manager, graph, and UI.
-                String stationToRemove = sManager.stationList.get(selectedRow).getName();
-                routeGraph.removeNode(routeGraph.getNodeByName(stationToRemove));
-                
-                sManager.stationList.remove(selectedRow);
-                stationTable.removeRow(selectedRow);
-                sManager.save();
+                // Capture the node reference BEFORE modifying any list
+                String stationName = sManager.stationList.get(selectedRow).getName();
+                Node nodeToRemove  = routeGraph.getNodeByName(stationName);
 
-                // Reset form fields after deletion
-                sNameBox.setText("");
-                latitudeBox.setText("");
-                longitudeBox.setText("");
-                refuelCheckBox.setSelected(false);
-                table.clearSelection();
-                selectedRow = -1;
-                
+                // Remove from the graph first (so its edges are properly cleaned up)
+                routeGraph.removeNode(nodeToRemove);
+
+                // Now remove from the station manager list (exactly once)
+                sManager.stationList.remove(selectedRow);
+                sManager.save();
                 frame.repaint();
                 JOptionPane.showMessageDialog(frame, "Station Removed Successfully!");
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(frame, "Error removing data", "File Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame, "Error saving data",
+                        "File Error", JOptionPane.ERROR_MESSAGE);
+                return; // Don't continue if persistence failed
             }
+
+            // Update the table display and reset the selection state
+            stationTable.removeRow(selectedRow);
+            sNameBox.setText("");
+            latitudeBox.setText("");
+            longitudeBox.setText("");
+            refuelCheckBox.setSelected(false);
+            table.clearSelection();
+            selectedRow =  1;
         });
 
-        // Listener: Create a new station placeholder
-        newStation.addActionListener(e -> {
-            String baseName = "New Station";
+        //   New Station: add a placeholder with a unique name  
+        newStation.addActionListener(e  -> {
+            // Auto generate a unique name by appending a counter when necessary
+            String baseName  = "New Station";
             String finalName = baseName;
-            int counter = 1;
+            int    counter   = 1;
 
-            // Logic to ensure the "New Station" name is unique (e.g., New Station 1, New Station 2)
             boolean nameExists = true;
             while (nameExists) {
                 nameExists = false;
                 for (BusStationClass s : sManager.stationList) {
                     if (s.getName().equalsIgnoreCase(finalName)) {
                         nameExists = true;
-                        finalName = baseName + " " + counter;
+                        finalName = baseName + counter;
                         counter++;
                         break;
                     }
                 }
             }
 
-            // Add the new station to the manager and the UI table
+            // Create the placeholder station at 0,0
             BusStationClass ns = new BusStationClass(finalName, 0.0, 0.0);
             sManager.stationList.add(ns);
-            stationTable.addRow(new Object[] { finalName, "0.0", "0.0", "No" });
-            
-            // Auto-select the newly created row
-            table.setRowSelectionInterval(stationTable.getRowCount() - 1, stationTable.getRowCount() - 1);
+            stationTable.addRow(new Object[]{finalName, "0.0", "0.0", "No"});
+
+            // Auto select the new row
+            int newRowIdx = stationTable.getRowCount() - 1;
+            table.setRowSelectionInterval(newRowIdx, newRowIdx);
 
             try {
                 sManager.save();
-                routeGraph.addVertex(ns); // Add to the graph
+                routeGraph.addVertex(ns); // Add a corresponding node to the graph
                 frame.repaint();
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(frame, "Error saving data", "File Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame, "Error saving data",
+                        "File Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
