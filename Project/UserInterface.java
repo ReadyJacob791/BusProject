@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
+
 /**
  * Main entry point and primary GUI class for the Bus Route Planner application.
  *
@@ -88,7 +89,7 @@ public class UserInterface {
      * active ( 1 means no selection).  Shared between the bus and
      * station management panels because only one can be active at a time.
      */
-    private int selectedRow =  1;
+    private int selectedRow = -1;
 
     // Constructor
 
@@ -242,21 +243,21 @@ public class UserInterface {
             }
 
             frame.revalidate();
-            selectedRow =  1; // Clear selection so stale data can't be modified
+            selectedRow =  -1; // Clear selection so stale data can't be modified
         });
 
         // Manage Bus: simple screen swap
         manageBus.addActionListener(e  -> {
             cardLayout.show(cardPanel, "MANAGEBUS");
             frame.revalidate();
-            selectedRow =  1;
+            selectedRow =  -1;
         });
 
         // Manage Station: simple screen swap
         manageStation.addActionListener(e  -> {
             cardLayout.show(cardPanel, "MANAGESTATION");
             frame.revalidate();
-            selectedRow =  1;
+            selectedRow =  -1;
         });
 
         // Logout: remove the menu bar (hides navigation) and return to login
@@ -617,7 +618,7 @@ public class UserInterface {
      */
     private String hashPassword(String password) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA 256");
+            MessageDigest digest = MessageDigest.getInstance("sha-256");
             byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
 
             // Convert each byte to a two character hex representation
@@ -843,7 +844,7 @@ public class UserInterface {
         // Remove the highlighted stop from the list
         removeBtn.addActionListener(e  -> {
             int idx = routeStopsList.getSelectedIndex();
-            if (idx !=  1) routeStopsModel.remove(idx);
+            if (idx !=  -1) routeStopsModel.remove(idx);
         });
 
         // Remove an edge (road connection) between two stations
@@ -1066,8 +1067,8 @@ public class UserInterface {
             if (routeGraph.vertices == null || routeGraph.vertices.isEmpty()) return;
 
             // Find the geographic bounding box so we can scale to fit the panel
-            double minLat = Double.MAX_VALUE, maxLat =  Double.MAX_VALUE;
-            double minLon = Double.MAX_VALUE, maxLon =  Double.MAX_VALUE;
+            double minLat = Double.MAX_VALUE, maxLat =  -Double.MAX_VALUE;
+            double minLon = Double.MAX_VALUE, maxLon =  -Double.MAX_VALUE;
 
             for (Node n : routeGraph.vertices) {
                 double lat = n.getStation().getLatitude();
@@ -1085,29 +1086,6 @@ public class UserInterface {
             int usableHeight = getHeight()  - (2 * paddingY);
 
             g2d.setStroke(new BasicStroke(2));
-
-            //  Draw edges 
-            for (Node n : routeGraph.vertices) {
-                int x1 = mapLonToX(n.getStation().getLongitude(), minLon, maxLon, usableWidth)  + paddingX;
-                int y1 = mapLatToY(n.getStation().getLatitude(),  minLat, maxLat, usableHeight) + paddingY;
-
-                for (Edge e : n.getEdges()) {
-                    Node target = e.getTo();
-                    int x2 = mapLonToX(target.getStation().getLongitude(), minLon, maxLon, usableWidth)  + paddingX;
-                    int y2 = mapLatToY(target.getStation().getLatitude(),  minLat, maxLat, usableHeight) + paddingY;
-
-                    // Draw the line
-                    g2d.setColor(Color.LIGHT_GRAY);
-                    g2d.drawLine(x1, y1, x2, y2);
-
-                    // Label the weight at the midpoint of the edge
-                    int midX = (x1 + x2) / 2;
-                    int midY = (y1 + y2) / 2;
-                    g2d.setColor(Color.WHITE);
-                    g2d.setFont(new Font("SansSerif", Font.BOLD, 14));
-                    g2d.drawString(String.format("%.1f mi", e.getWeight()), midX, midY - 5);
-                }
-            }
 
             //  Draw nodes 
             int nodeSize = 16;
@@ -1139,6 +1117,30 @@ public class UserInterface {
                                 n.getStation().getLongitude()),
                         x + 15, y + 20);
             }
+            //  Draw edges 
+            for (Node n : routeGraph.vertices) {
+                int x1 = mapLonToX(n.getStation().getLongitude(), minLon, maxLon, usableWidth)  + paddingX;
+                int y1 = mapLatToY(n.getStation().getLatitude(),  minLat, maxLat, usableHeight) + paddingY;
+
+                for (Edge e : n.getEdges()) {
+                    Node target = e.getTo();
+                    int x2 = mapLonToX(target.getStation().getLongitude(), minLon, maxLon, usableWidth)  + paddingX;
+                    int y2 = mapLatToY(target.getStation().getLatitude(),  minLat, maxLat, usableHeight) + paddingY;
+
+                    // Draw the line
+                    g2d.setColor(Color.LIGHT_GRAY);
+                    g2d.drawLine(x1, y1, x2, y2);
+
+                    // Label the weight at the midpoint of the edge
+                    int midX = (x1 + x2) / 2;
+                    int midY = (y1 + y2) / 2;
+                    g2d.setColor(Color.WHITE);
+                    g2d.setFont(new Font("SansSerif", Font.BOLD, 14));
+                    g2d.drawString(String.format("%.1f mi", e.getWeight()), midX, midY - 5);
+                }
+            }
+
+
         }
 
         /**
@@ -1268,7 +1270,7 @@ public class UserInterface {
         table.getSelectionModel().addListSelectionListener(e  -> {
             if (!e.getValueIsAdjusting()) {
                 selectedRow = table.getSelectedRow();
-                if (selectedRow !=  1) {
+                if (selectedRow !=  -1) {
                     BusClass selected = bManager.busList.get(selectedRow);
                     makeBox.setText(selected.getMake());
                     modelBox.setText(selected.getModel());
@@ -1283,7 +1285,7 @@ public class UserInterface {
 
         //   Submit: validate and save changes to the selected bus  
         submitBus.addActionListener(e  -> {
-            if (selectedRow ==  1) {
+            if (selectedRow ==  -1) {
                 JOptionPane.showMessageDialog(frame, "Please select a bus first.");
                 return;
             }
@@ -1554,7 +1556,7 @@ public class UserInterface {
         table.getSelectionModel().addListSelectionListener(e  -> {
             if (!e.getValueIsAdjusting()) {
                 selectedRow = table.getSelectedRow();
-                if (selectedRow !=  1) {
+                if (selectedRow !=  -1) {
                     BusStationClass s = sManager.stationList.get(selectedRow);
                     sNameBox.setText(s.getName());
                     latitudeBox.setText(String.valueOf(s.getLatitude()));
@@ -1571,7 +1573,7 @@ public class UserInterface {
 
         //   Submit: validate and save changes to the selected station  
         submitStation.addActionListener(e  -> {
-            if (selectedRow ==  1) {
+            if (selectedRow ==  -1) {
                 JOptionPane.showMessageDialog(frame, "Please select a station first.");
                 return;
             }
@@ -1629,9 +1631,9 @@ public class UserInterface {
                         : new BusStationClass(nameVal, lat, lon);
 
                 sManager.stationList.set(selectedRow, newStationObj);
-                stationTable.setValueAt(nameVal,               selectedRow, 0);
-                stationTable.setValueAt(latTxt,                selectedRow, 1);
-                stationTable.setValueAt(lonTxt,                selectedRow, 2);
+                stationTable.setValueAt(nameVal, selectedRow, 0);
+                stationTable.setValueAt(latTxt, selectedRow, 1);
+                stationTable.setValueAt(lonTxt, selectedRow, 2);
                 stationTable.setValueAt(isRefuel ? "Yes" : "No", selectedRow, 3);
 
                 try {
@@ -1648,7 +1650,7 @@ public class UserInterface {
         });
 
         removeStation.addActionListener(e  -> {
-            if (selectedRow ==  1) {
+            if (selectedRow ==  -1) {
                 JOptionPane.showMessageDialog(frame, "Please select a station first.");
                 return;
             }
