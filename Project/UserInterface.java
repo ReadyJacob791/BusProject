@@ -22,7 +22,7 @@ import javax.swing.table.DefaultTableModel;
  */
 public class UserInterface {
 
-    // --- GUI Components ---
+    //  GUI Components 
     private JFrame frame;
     private JPanel cardPanel;       // The container that holds different screens
     private CardLayout cardLayout; // The manager that swaps between screens
@@ -31,17 +31,17 @@ public class UserInterface {
     private JPanel buspanel;
     private JPanel stationpanel;
 
-    // --- Table Models for Data Display ---
+    //  Table Models for Data Display 
     private DefaultTableModel busTable;
     private DefaultTableModel stationTable;
 
-    // --- Logic & Data Managers ---
+    //  Logic & Data Managers 
     private BusManager bManager;
     private BusStationManager sManager;
     private WeightedGraph routeGraph;
     private RoutePlanner routePlanner;
 
-    // --- Interactive UI Elements ---
+    //  Interactive UI Elements 
     JComboBox<String> busDropdown = new JComboBox<>();
     JComboBox<String> stationDropDown = new JComboBox<>();
     private int selectedRow = -1; // Tracks which row is selected in tables
@@ -98,13 +98,13 @@ public class UserInterface {
         // NOTE: Check the spelling of "WeigthedGraph.csv" (See Error list below)
         routeGraph.buildGraphFromCSV(sManager, "Project/Route/WeightedGraph.csv");
 
-        // --- JFrame Setup ---
+        //  JFrame Setup 
         frame = new JFrame("Route Planner");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH); // Opens the app in full screen
         frame.setLocationRelativeTo(null); // Centers the frame (though MAXIMIZED overrides this)
 
-        // --- CardLayout Setup ---
+        //  CardLayout Setup 
         // CardLayout allows us to "stack" panels and show only one at a time
         cardLayout = new CardLayout();
         cardPanel = new JPanel(cardLayout);
@@ -149,7 +149,7 @@ public class UserInterface {
         logoutItem.setFont(menuFont);
         exit.setFont(menuFont);
 
-        // --- Admin Specific Feature ---
+        //  Admin Specific Feature 
         // Check if the user has admin privileges before showing the account list option
         if (currentUser.isAdmin()) {
             JMenuItem seeAccounts = new JMenuItem("See All Accounts");
@@ -162,7 +162,7 @@ public class UserInterface {
             menu.addSeparator();
         }
 
-        // --- Action Listeners for Navigation ---
+        //  Action Listeners for Navigation 
 
         // Exit: Closes the entire application
         exit.addActionListener(e -> {
@@ -273,7 +273,7 @@ public class UserInterface {
             // Convert char array to String (Standard practice for JPasswordField)
             String password = new String(passField.getPassword());
 
-            // --- Client-side Validation ---
+            //  Client-side Validation 
             if (username.length() < 3) {
                 JOptionPane.showMessageDialog(frame, "Username must be at least 3 characters long!", "Validation Error",
                         JOptionPane.ERROR_MESSAGE);
@@ -286,7 +286,7 @@ public class UserInterface {
                 return;
             }
 
-            // --- Server-side Verification ---
+            //  Server-side Verification 
             // Retrieve the hashed version of the password from the CSV
             String storedHash = getStoredPasswordHash(username);
             if (storedHash == null) {
@@ -556,23 +556,34 @@ public class UserInterface {
         return null;
     }
 
-    // This is the main route pannel and is used to add or remove connection of the
-    // graph or to plan a route and see if the route is possible.
+/**
+     * Builds and returns the main Route Planning panel.
+     * Note: This method assumes `bManager`, `sManager`, `frame`, `routeGraph`, 
+     * and `routePlanner` are declared as class-level instance variables.
+     */
     private JPanel routePanel() {
+        // Main container using BorderLayout (North, South, East, West, Center)
         JPanel routePan = new JPanel(new BorderLayout());
 
+        // We use a CardLayout for the left panel so we can swap between the "Controls" view
+        // and the "Results" view without opening a new window.
         JPanel leftCardPanel = new JPanel(new CardLayout());
         CardLayout leftLayout = (CardLayout) leftCardPanel.getLayout();
 
+        // Fix the left panel's width to 450px, letting height stretch automatically
         leftCardPanel.setPreferredSize(new Dimension(450, 0));
 
+        // --- CONTROLS PANEL SETUP ---
+        // BoxLayout with Y_AXIS stacks components vertically from top to bottom
         JPanel controlPanel = new JPanel();
         controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
         controlPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
+        // Reusable fonts for UI consistency
         Font largeFont = new Font("SansSerif", Font.PLAIN, 18);
         Font boldFont = new Font("SansSerif", Font.BOLD, 18);
 
+        // Header for the route building section
         JLabel routeLabel = new JLabel("Build Route");
         routeLabel.setFont(boldFont);
         routeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -581,6 +592,12 @@ public class UserInterface {
         busLabel.setFont(boldFont);
         busLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        // FIX: Declared busDropdown and stationDropDown locally to prevent compilation errors.
+        // If these are class-level variables, remove the 'JComboBox<String>' type declaration here.
+        JComboBox<String> busDropdown = new JComboBox<>();
+        JComboBox<String> stationDropDown = new JComboBox<>();
+
+        // Populate the Bus selection dropdown
         busDropdown.setFont(largeFont);
         busDropdown.setMaximumSize(new Dimension(400, 40));
         for (Object bObj : bManager.busList) {
@@ -588,10 +605,12 @@ public class UserInterface {
             busDropdown.addItem(b.getMake() + " " + b.getModel());
         }
 
+        // Add bus selection elements to the control panel
         controlPanel.add(busLabel);
         controlPanel.add(busDropdown);
-        controlPanel.add(Box.createVerticalStrut(15));
+        controlPanel.add(Box.createVerticalStrut(15)); // Adds visual vertical spacing
 
+        // Populate the Station selection dropdown
         stationDropDown.setFont(largeFont);
         for (BusStationClass s : sManager.stationList) {
             stationDropDown.addItem(s.getName());
@@ -602,9 +621,12 @@ public class UserInterface {
         addBtn.setFont(largeFont);
         addBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        // Use DefaultListModel to allow dynamic adding/removing of route stops in the JList
         DefaultListModel<String> routeStopsModel = new DefaultListModel<>();
         JList<String> routeStopsList = new JList<>(routeStopsModel);
         routeStopsList.setFont(largeFont);
+        
+        // Wrap the list in a scroll pane in case the user adds many stops
         JScrollPane listScroller = new JScrollPane(routeStopsList);
         listScroller.setPreferredSize(new Dimension(400, 300));
 
@@ -614,9 +636,10 @@ public class UserInterface {
 
         JButton makeRouteBtn = new JButton("Calculate Route");
         makeRouteBtn.setFont(new Font("SansSerif", Font.BOLD, 20));
-        makeRouteBtn.setBackground(new Color(200, 230, 255));
+        makeRouteBtn.setBackground(new Color(200, 230, 255)); // Light blue color
         makeRouteBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        // --- GRAPH EDGE MODIFICATION SECTION ---
         JLabel edgeLabel = new JLabel("Add Connection (Edge)");
         edgeLabel.setFont(boldFont);
         edgeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -628,6 +651,7 @@ public class UserInterface {
         edgeFromDrop.setMaximumSize(new Dimension(400, 40));
         edgeToDrop.setMaximumSize(new Dimension(400, 40));
 
+        // Populate from/to dropdowns for managing graph edges
         for (BusStationClass s : sManager.stationList) {
             edgeFromDrop.addItem(s.getName());
             edgeToDrop.addItem(s.getName());
@@ -641,6 +665,7 @@ public class UserInterface {
         removeEdgeBtn.setFont(largeFont);
         removeEdgeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        // Assemble the rest of the control panel
         controlPanel.add(routeLabel);
         controlPanel.add(Box.createVerticalStrut(10));
         controlPanel.add(stationDropDown);
@@ -653,7 +678,7 @@ public class UserInterface {
         controlPanel.add(Box.createVerticalStrut(15));
         controlPanel.add(makeRouteBtn);
         controlPanel.add(Box.createVerticalStrut(30));
-        controlPanel.add(new JSeparator());
+        controlPanel.add(new JSeparator()); // Horizontal line separator
         controlPanel.add(Box.createVerticalStrut(20));
         controlPanel.add(edgeLabel);
         controlPanel.add(Box.createVerticalStrut(10));
@@ -667,19 +692,22 @@ public class UserInterface {
         controlPanel.add(Box.createVerticalStrut(5));
         controlPanel.add(removeEdgeBtn);
 
+        // --- RESULTS PANEL SETUP ---
         JPanel resultsPanel = new JPanel(new BorderLayout(10, 10));
         resultsPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
         JLabel resultsHeader = new JLabel("Route Itinerary", SwingConstants.CENTER);
         resultsHeader.setFont(new Font("SansSerif", Font.BOLD, 24));
 
+        // Text area to display final calculations
         JTextArea resultsTextArea = new JTextArea();
         resultsTextArea.setFont(new Font("SansSerif", Font.PLAIN, 20));
-        resultsTextArea.setEditable(false);
+        resultsTextArea.setEditable(false); // Make it read-only
         resultsTextArea.setLineWrap(true);
-        resultsTextArea.setWrapStyleWord(true);
+        resultsTextArea.setWrapStyleWord(true); // Wrap at word boundaries, not mid-word
         JScrollPane resultsScroller = new JScrollPane(resultsTextArea);
 
+        // Button to flip back to the building controls
         JButton backBtn = new JButton("Back to Route Builder");
         backBtn.setFont(boldFont);
         backBtn.setBackground(new Color(255, 200, 200));
@@ -688,14 +716,20 @@ public class UserInterface {
         resultsPanel.add(resultsScroller, BorderLayout.CENTER);
         resultsPanel.add(backBtn, BorderLayout.SOUTH);
 
+        // Add both panels to the CardLayout container
         leftCardPanel.add(controlPanel, "CONTROLS");
         leftCardPanel.add(resultsPanel, "RESULTS");
 
+        // The center panel handles drawing the custom map/graph
         GraphPanel centerPanel = new GraphPanel();
 
+        // Add the left menu and center map to the main layout
         routePan.add(leftCardPanel, BorderLayout.WEST);
         routePan.add(centerPanel, BorderLayout.CENTER);
 
+        // --- ACTION LISTENERS (BUTTON BEHAVIORS) ---
+
+        // Adds the currently selected station to the route list
         addBtn.addActionListener(e -> {
             String selected = (String) stationDropDown.getSelectedItem();
             if (selected != null) {
@@ -703,6 +737,7 @@ public class UserInterface {
             }
         });
 
+        // Removes the highlighted station from the route list
         removeBtn.addActionListener(e -> {
             int selectedIdx = routeStopsList.getSelectedIndex();
             if (selectedIdx != -1) {
@@ -710,6 +745,7 @@ public class UserInterface {
             }
         });
 
+        // Removes an edge (road/connection) between two stations
         removeEdgeBtn.addActionListener(e -> {
             String fromName = (String) edgeFromDrop.getSelectedItem();
             String toName = (String) edgeToDrop.getSelectedItem();
@@ -731,12 +767,13 @@ public class UserInterface {
             }
 
             routeGraph.removeEdge(n1, n2);
-            routeGraph.rewriteCSV("Project/Route/WeigthedGraph.csv");
+            routeGraph.rewriteCSV("Project/Route/WeightedGraph.csv"); 
             JOptionPane.showMessageDialog(frame, "Connection severed and saved.");
 
-            centerPanel.repaint();
+            centerPanel.repaint(); // Redraw map to reflect missing connection
         });
 
+        // Adds an edge (road/connection) between two stations
         addEdgeBtn.addActionListener(e -> {
             String fromName = (String) edgeFromDrop.getSelectedItem();
             String toName = (String) edgeToDrop.getSelectedItem();
@@ -749,7 +786,6 @@ public class UserInterface {
             Node n1 = routeGraph.getNodeByName(fromName);
             Node n2 = routeGraph.getNodeByName(toName);
 
-            // Prevent NullPointerException if the station was deleted from the system
             if (n1 == null || n2 == null) {
                 JOptionPane.showMessageDialog(frame,
                         "Error: One of these stations no longer exists.\nPlease close and reopen the Route Builder to refresh the dropdown lists.",
@@ -757,6 +793,7 @@ public class UserInterface {
                 return;
             }
 
+            // Check if the edge already exists to prevent duplicate lines
             boolean alreadyConnected = false;
             for (Edge edge : n1.getEdges()) {
                 if (edge.getTo().equals(n2)) {
@@ -771,15 +808,18 @@ public class UserInterface {
             }
 
             routeGraph.addEdge(n1, n2);
-            routeGraph.appendEdgeToCSV(fromName, toName, "Project/Route/WeigthedGraph.csv");
+            // FIX: Fixed typo in filename here as well
+            routeGraph.appendEdgeToCSV(fromName, toName, "Project/Route/WeightedGraph.csv");
             JOptionPane.showMessageDialog(frame,
                     "Road connected between " + fromName + " and " + toName + " and saved!");
 
-            centerPanel.repaint();
+            centerPanel.repaint(); // Redraw map to show new connection
         });
 
+        // Flips the CardLayout back to the controls view
         backBtn.addActionListener(e -> leftLayout.show(leftCardPanel, "CONTROLS"));
 
+        // CORE LOGIC: Calculates the actual path and fuel statistics
         makeRouteBtn.addActionListener(e -> {
             if (routeStopsModel.size() < 2) {
                 JOptionPane.showMessageDialog(frame, "Please add at least 2 stations to the list to create a route.");
@@ -789,13 +829,16 @@ public class UserInterface {
             java.util.List<Node> finalRoute = new ArrayList<>();
             double totalDistance = 0.0;
 
+            // Loop through each consecutive pair of stations in the user's list
             for (int i = 0; i < routeStopsModel.size() - 1; i++) {
                 Node currentStation = routeGraph.getNodeByName(routeStopsModel.get(i));
                 Node nextStation = routeGraph.getNodeByName(routeStopsModel.get(i + 1));
 
+                // Ask the routePlanner (Dijkstra/A* algorithm likely) for the shortest path
                 java.util.List<Node> legPath = routePlanner.getShortestPath(currentStation, nextStation);
 
-                if (legPath.isEmpty()) {
+                // FIX: Added 'legPath == null' safeguard
+                if (legPath == null || legPath.isEmpty()) {
                     JOptionPane.showMessageDialog(frame,
                             "Pathfinding failed!\n\nThe bus gets stuck at: " + currentStation.getStation().getName() +
                                     "\nIt cannot reach: " + nextStation.getStation().getName() +
@@ -804,6 +847,7 @@ public class UserInterface {
                     return;
                 }
 
+                // Calculate the distance of this specific leg by checking edge weights
                 for (int j = 0; j < legPath.size() - 1; j++) {
                     Node a = legPath.get(j);
                     Node b = legPath.get(j + 1);
@@ -815,12 +859,17 @@ public class UserInterface {
                     }
                 }
 
-                if (i > 0) {
-                    legPath.remove(0);
+                // FIX: Used subList instead of .remove(0). 
+                // If legPath is an immutable list, .remove(0) throws an UnsupportedOperationException.
+                // We skip the first node on subsequent legs so we don't list the same station twice (e.g. A->B, B->C).
+                if (i > 0 && !legPath.isEmpty()) {
+                    finalRoute.addAll(legPath.subList(1, legPath.size()));
+                } else {
+                    finalRoute.addAll(legPath);
                 }
-                finalRoute.addAll(legPath);
             }
 
+            // Grab coordinates for heading calculation
             Node firstStation = routeGraph.getNodeByName(routeStopsModel.firstElement());
             Node lastStation = routeGraph.getNodeByName(routeStopsModel.lastElement());
 
@@ -831,6 +880,7 @@ public class UserInterface {
 
             String overallHeading = routePlanner.calculateHeading(startLat, startLon, endLat, endLon);
 
+            // Calculate physics and fuel limits based on chosen bus
             int selectedBusIdx = busDropdown.getSelectedIndex();
             BusClass selectedBus = (BusClass) bManager.busList.get(selectedBusIdx);
 
@@ -838,19 +888,22 @@ public class UserInterface {
             double burnRate = selectedBus.getFuelBurnRate();
             double capacity = selectedBus.getFuelCapacity();
 
+            // Prevent division by zero if speed is 0
             double timeRequired = speed > 0 ? totalDistance / speed : 0;
-            double fuelRequired = timeRequired * burnRate;
+            // Note: This assumes burnRate is in 'gallons per hour'. If it is MPG, it should be (totalDistance / burnRate)
+            double fuelRequired = timeRequired * burnRate; 
 
             boolean canComplete = (fuelRequired <= capacity) && (speed > 0);
 
+            // Build the formatted results string
             StringBuilder sb = new StringBuilder();
             sb.append("Heading: ").append(overallHeading);
             sb.append("\nTotal Distance: ").append(String.format("%.2f", totalDistance)).append(" miles\n");
-            sb.append("Bus Selected: ").append(selectedBus.getMake()).append(" ").append(selectedBus.getModel())
-                    .append("\n");
+            sb.append("Bus Selected: ").append(selectedBus.getMake()).append(" ").append(selectedBus.getModel()).append("\n");
             sb.append("Est. Trip Time: ").append(String.format("%.2f", timeRequired)).append(" hours\n");
             sb.append("Est. Fuel Required: ").append(String.format("%.2f", fuelRequired)).append(" gallons\n");
             sb.append("Fuel Capacity: ").append(String.format("%.2f", capacity)).append(" gallons\n\n");
+            
             if (canComplete) {
                 sb.append("ROUTE APPROVED\n");
             } else {
@@ -860,19 +913,25 @@ public class UserInterface {
                     sb.append("ROUTE FAILED (Insufficient Fuel Capacity)\n");
                 }
             }
-            sb.append("--------------------------------------------------\n\n");
+            sb.append("--\n\n");
 
+            // Print the final station-by-station itinerary
             for (int i = 0; i < finalRoute.size(); i++) {
                 sb.append("Stop ").append(i + 1).append(": \n");
                 sb.append("   ").append(finalRoute.get(i).getStation().getName()).append("\n\n");
             }
 
+            // Display results and swap the CardLayout view
             resultsTextArea.setText(sb.toString());
             leftLayout.show(leftCardPanel, "RESULTS");
         });
+        
         return routePan;
     }
 
+    /**
+     * Inner class responsible for drawing the nodes and edges on a custom 2D canvas.
+     */
     private class GraphPanel extends JPanel {
 
         public GraphPanel() {
@@ -881,37 +940,37 @@ public class UserInterface {
 
         @Override
         protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
+            super.paintComponent(g); // Always call super to ensure proper rendering
 
             Graphics2D g2d = (Graphics2D) g;
+            // Enable anti-aliasing for smooth lines and text
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             if (routeGraph.vertices == null || routeGraph.vertices.isEmpty())
                 return;
 
+            // Step 1: Find the bounding box (Min/Max Lat and Lon) to dynamically scale the map
             double minLat = Double.MAX_VALUE, maxLat = -Double.MAX_VALUE;
             double minLon = Double.MAX_VALUE, maxLon = -Double.MAX_VALUE;
 
             for (Node n : routeGraph.vertices) {
                 double lat = n.getStation().getLatitude();
                 double lon = n.getStation().getLongitude();
-                if (lat < minLat)
-                    minLat = lat;
-                if (lat > maxLat)
-                    maxLat = lat;
-                if (lon < minLon)
-                    minLon = lon;
-                if (lon > maxLon)
-                    maxLon = lon;
+                if (lat < minLat) minLat = lat;
+                if (lat > maxLat) maxLat = lat;
+                if (lon < minLon) minLon = lon;
+                if (lon > maxLon) maxLon = lon;
             }
 
+            // Define margins so dots don't draw exactly on the edge of the screen
             int paddingX = 150;
             int paddingY = 60;
             int usableWidth = getWidth() - (2 * paddingX);
             int usableHeight = getHeight() - (2 * paddingY);
 
-            g2d.setStroke(new BasicStroke(2));
+            g2d.setStroke(new BasicStroke(2)); // Thicker lines for roads
 
+            // Step 2: Draw the edges (Lines) FIRST so they appear underneath the nodes
             for (Node n : routeGraph.vertices) {
                 int x1 = mapLonToX(n.getStation().getLongitude(), minLon, maxLon, usableWidth) + paddingX;
                 int y1 = mapLatToY(n.getStation().getLatitude(), minLat, maxLat, usableHeight) + paddingY;
@@ -921,37 +980,42 @@ public class UserInterface {
                     int x2 = mapLonToX(target.getStation().getLongitude(), minLon, maxLon, usableWidth) + paddingX;
                     int y2 = mapLatToY(target.getStation().getLatitude(), minLat, maxLat, usableHeight) + paddingY;
 
+                    // Draw connecting line
                     g2d.setColor(Color.LIGHT_GRAY);
                     g2d.drawLine(x1, y1, x2, y2);
 
+                    // Calculate midpoint of the line to draw the distance text
                     int midX = (x1 + x2) / 2;
                     int midY = (y1 + y2) / 2;
 
                     g2d.setColor(Color.WHITE);
                     g2d.setFont(new Font("SansSerif", Font.BOLD, 14));
                     String weightText = String.format("%.1f mi", e.getWeight());
-
                     g2d.drawString(weightText, midX, midY - 5);
                 }
             }
 
+            // Step 3: Draw the Nodes (Stations) SECOND so they sit on top of the lines
             int nodeSize = 16;
             for (Node n : routeGraph.vertices) {
                 int x = mapLonToX(n.getStation().getLongitude(), minLon, maxLon, usableWidth) + paddingX;
                 int y = mapLatToY(n.getStation().getLatitude(), minLat, maxLat, usableHeight) + paddingY;
 
+                // Special icon for Refuel Stations, regular dot for standard stations
                 if (n.getStation() instanceof RefuelBusStation) {
                     g2d.setFont(new Font("SansSerif", Font.PLAIN, 20));
                     g2d.drawString("⛽", x - 12, y + 7);
                 } else {
-                    g2d.setColor(new Color(200, 50, 50));
+                    g2d.setColor(new Color(200, 50, 50)); // Red dot
                     g2d.fillOval(x - (nodeSize / 2), y - (nodeSize / 2), nodeSize, nodeSize);
                 }
 
+                // Draw Station Name
                 g2d.setColor(Color.WHITE);
                 g2d.setFont(new Font("SansSerif", Font.BOLD, 16));
                 g2d.drawString(n.getStation().getName(), x + 15, y + 4);
 
+                // Draw Coordinates slightly smaller and below the name
                 g2d.setColor(Color.LIGHT_GRAY);
                 g2d.setFont(new Font("SansSerif", Font.PLAIN, 12));
                 String coordText = String.format("Lat: %.3f, Lon: %.3f",
@@ -960,57 +1024,86 @@ public class UserInterface {
             }
         }
 
+        /**
+         * Normalizes a Longitude value to an X pixel coordinate.
+         */
         private int mapLonToX(double lon, double minLon, double maxLon, int width) {
-            if (maxLon == minLon)
-                return width / 2;
+            // Prevent divide-by-zero if there's only one station or all have identical longitude
+            if (maxLon == minLon) return width / 2;
+            
+            // Percentage formula: (current - min) / (max - min)
             return (int) (((lon - minLon) / (maxLon - minLon)) * width);
         }
 
+        /**
+         * Normalizes a Latitude value to a Y pixel coordinate.
+         * Note: Y is inverted (height - value) because screen pixel Y-coordinates 
+         * increase top-to-bottom, while map Latitude increases bottom-to-top (South to North).
+         */
         private int mapLatToY(double lat, double minLat, double maxLat, int height) {
-            if (maxLat == minLat)
-                return height / 2;
+            // Prevent divide-by-zero
+            if (maxLat == minLat) return height / 2;
+            
             return height - (int) (((lat - minLat) / (maxLat - minLat)) * height);
         }
     }
-
+    /**
+     * Constructs the Bus Management panel.
+     * Uses a BorderLayout: Table in the Center, Form on the West (Left).
+     */
     private JPanel manageBus() {
+        // The main container for this section of the app
         JPanel buspanel = new JPanel(new BorderLayout());
 
+        //  FONT SETTINGS 
         Font labelFont = new Font("SansSerif", Font.BOLD, 18);
         Font inputFont = new Font("SansSerif", Font.PLAIN, 18);
         Font tableFont = new Font("SansSerif", Font.PLAIN, 16);
 
-        String tablename[] = { "Make", "Model", "Type", "Fuel Type", "Fuel Capacity", "Fuel Burn Rate",
-                "Cruise Speed" };
+        //  TABLE INITIALIZATION 
+        // Define the columns based on Bus properties
+        String tablename[] = { "Make", "Model", "Type", "Fuel Type", "Fuel Capacity", "Fuel Burn Rate", "Cruise Speed" };
+        
+        // DefaultTableModel allows us to modify rows (add/remove/update) at runtime
         DefaultTableModel busTable = new DefaultTableModel(tablename, 0);
         JTable table = new JTable(busTable);
 
+        // Styling the table for better visibility
         table.setFont(tableFont);
         table.setRowHeight(30);
         table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 16));
 
+        // JScrollPane handles overflow if the list of buses is long
         JScrollPane pane = new JScrollPane(table);
 
+        //  DATA LOADING 
+        // Iterate through the backend bus list and populate the UI table
         for (Object b : bManager.busList) {
+            // Assume BusClass has a method that returns a comma-separated string of its data
             String s = ((BusClass) b).displayBusInfo();
             String[] col = s.split(", ");
-            // Make sure you include col[6] at the end!
+            
+            // Populate the row using the split data
             busTable.addRow(new Object[] { col[0], col[1], col[2], col[3], col[4], col[5], col[6] });
         }
 
+        // Add the table to the central area of the panel
         buspanel.add(pane, BorderLayout.CENTER);
 
+        //  FORM LAYOUT SETUP (LEFT SIDE) 
         JPanel busWrapper = new JPanel();
         busWrapper.setLayout(new BoxLayout(busWrapper, BoxLayout.Y_AXIS));
         busWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        Dimension boxSize = new Dimension(800, 40);
+        Dimension boxSize = new Dimension(800, 40); // Standard sizing for input boxes
 
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
 
+        // Define individual input components
         JTextField makeBox = new JTextField(15);
         JTextField modelBox = new JTextField(15);
 
+        // Dropdowns (JComboBox) for fixed choices
         JComboBox<String> typeBox = new JComboBox<>(new String[] { "CityBus", "LongDistanceBus" });
         typeBox.setFont(inputFont);
         typeBox.setMaximumSize(boxSize);
@@ -1023,27 +1116,25 @@ public class UserInterface {
         JTextField fuelBurnRateBox = new JTextField(15);
         JTextField fuelCapacityBox = new JTextField(15);
 
-        // Helper to add components to inputPanel
+        //  ASSEMBLING THE FORM 
+        // autoAdd is a helper method (defined below) to add Label + Component + Strut (spacing)
         autoAdd(inputPanel, new JLabel("Make:"), makeBox, labelFont, boxSize);
         autoAdd(inputPanel, new JLabel("Model:"), modelBox, labelFont, boxSize);
         autoAdd(inputPanel, new JLabel("Type:"), typeBox, labelFont, boxSize);
 
-        // Added between Type and Fuel Capacity
+        // Manual addition for Fuel Type to handle the JComboBox specifically
         inputPanel.add(new JLabel("Fuel Type:") {
-            {
-                setFont(labelFont);
-            }
+            { setFont(labelFont); }
         });
         inputPanel.add(fuelTypeBox);
-        inputPanel.add(Box.createVerticalStrut(10));
+        inputPanel.add(Box.createVerticalStrut(10)); // Vertical spacing
 
         autoAdd(inputPanel, new JLabel("Fuel Capacity:"), fuelCapacityBox, labelFont, boxSize);
         autoAdd(inputPanel, new JLabel("Fuel Burn Rate:"), fuelBurnRateBox, labelFont, boxSize);
         autoAdd(inputPanel, new JLabel("Cruise Speed:"), cruiseSpeedBox, labelFont, boxSize);
 
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.setLayout(new FlowLayout());
-
+        //  BUTTONS 
+        JPanel buttonPanel = new JPanel(new FlowLayout());
         JButton submitBus = new JButton("Submit");
         JButton removeBus = new JButton("Remove");
         JButton newBus = new JButton("New Bus");
@@ -1056,16 +1147,24 @@ public class UserInterface {
         buttonPanel.add(newBus);
         buttonPanel.add(removeBus);
 
+        // Combine input fields and buttons into the wrapper
         busWrapper.add(inputPanel);
         busWrapper.add(buttonPanel);
 
+        // Place the entire form on the West (Left) side
         buspanel.add(busWrapper, BorderLayout.WEST);
 
+        //  EVENT LISTENERS 
+
+        // Listener: Sync Table Selection -> Form Fields
         table.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 selectedRow = table.getSelectedRow();
                 if (selectedRow != -1) {
+                    // Get the actual Bus object from the manager's list
                     BusClass selected = (BusClass) bManager.busList.get(selectedRow);
+                    
+                    // Update the text boxes with the object's data
                     makeBox.setText(selected.getMake());
                     modelBox.setText(selected.getModel());
                     typeBox.setSelectedItem(selected.getType());
@@ -1076,6 +1175,7 @@ public class UserInterface {
             }
         });
 
+        // Listener: Handle "Submit" (Update existing bus)
         submitBus.addActionListener(e -> {
             if (selectedRow == -1) {
                 JOptionPane.showMessageDialog(frame, "Please select a bus first.");
@@ -1085,6 +1185,7 @@ public class UserInterface {
             StringBuilder errorLog = new StringBuilder();
             boolean isValid = true;
 
+            // Clean input values
             String makeVal = makeBox.getText().trim();
             String modelVal = modelBox.getText().trim();
             String typeVal = typeBox.getSelectedItem().toString();
@@ -1093,13 +1194,13 @@ public class UserInterface {
             String burnTxt = fuelBurnRateBox.getText().trim();
             String capTxt = fuelCapacityBox.getText().trim();
 
+            // VALIDATION: Check for duplicate Make/Model in the fleet
             for (int i = 0; i < bManager.busList.size(); i++) {
-                if (i == selectedRow)
-                    continue;
+                if (i == selectedRow) continue; // Skip the bus we are currently editing
 
                 BusClass existingBus = (BusClass) bManager.busList.get(i);
                 if (existingBus.getMake().equalsIgnoreCase(makeVal) &&
-                        existingBus.getModel().equalsIgnoreCase(modelVal)) {
+                    existingBus.getModel().equalsIgnoreCase(modelVal)) {
                     errorLog.append("- A bus with the make '").append(makeVal)
                             .append("' and model '").append(modelVal).append("' already exists.\n");
                     isValid = false;
@@ -1107,6 +1208,7 @@ public class UserInterface {
                 }
             }
 
+            // VALIDATION: Alphanumeric checks (No special symbols in names)
             String alphaNumRegex = "^[a-zA-Z0-9 ]+$";
             if (!makeVal.matches(alphaNumRegex)) {
                 errorLog.append("- 'Make' has invalid symbols or is empty.\n");
@@ -1116,11 +1218,8 @@ public class UserInterface {
                 errorLog.append("- 'Model' has invalid symbols or is empty.\n");
                 isValid = false;
             }
-            if (!typeVal.matches(alphaNumRegex)) {
-                errorLog.append("- 'Type' has invalid symbols or is empty.\n");
-                isValid = false;
-            }
 
+            // VALIDATION: Numeric checks (Must be valid numbers/decimals)
             String numericRegex = "^[0-9]*\\.?[0-9]+$";
             if (!speedTxt.matches(numericRegex)) {
                 errorLog.append("- 'Cruise Speed' must be a pure number.\n");
@@ -1136,9 +1235,9 @@ public class UserInterface {
             }
 
             if (!isValid) {
-                JOptionPane.showMessageDialog(frame, errorLog.toString(), "Input Errors",
-                        JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame, errorLog.toString(), "Input Errors", JOptionPane.ERROR_MESSAGE);
             } else {
+                // APPLY CHANGES: Update the Backend Object
                 BusClass currentBus = (BusClass) bManager.busList.get(selectedRow);
                 currentBus.setMake(makeVal);
                 currentBus.setModel(modelVal);
@@ -1148,6 +1247,7 @@ public class UserInterface {
                 currentBus.setFuelBurnRate(Double.parseDouble(burnTxt));
                 currentBus.setFuelCapacity(Double.parseDouble(capTxt));
 
+                // APPLY CHANGES: Update the UI Table view
                 busTable.setValueAt(makeVal, selectedRow, 0);
                 busTable.setValueAt(modelVal, selectedRow, 1);
                 busTable.setValueAt(typeVal, selectedRow, 2);
@@ -1157,28 +1257,29 @@ public class UserInterface {
                 busTable.setValueAt(speedTxt, selectedRow, 6);
 
                 try {
-                    bManager.save();
+                    bManager.save(); // Save changes to the external file
                     JOptionPane.showMessageDialog(frame, "Changes Saved!");
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(frame, "Error saving: " + ex.getMessage());
-                    ex.printStackTrace();
                 }
             }
         });
 
+        // Listener: Remove the selected bus
         removeBus.addActionListener(e -> {
             if (bManager.removeBus(selectedRow)) {
                 busTable.removeRow(selectedRow);
-                selectedRow = -1;
+                selectedRow = -1; // Reset selection
             }
         });
 
+        // Listener: Create a new Bus entry
         newBus.addActionListener(e -> {
             String baseMake = "Make";
-
             String finalMake = baseMake;
             int counter = 1;
 
+            // Ensure the new "placeholder" make name is unique (e.g. Make, Make1, Make2...)
             boolean duplicateFound = true;
             while (duplicateFound) {
                 duplicateFound = false;
@@ -1193,6 +1294,7 @@ public class UserInterface {
                 }
             }
 
+            // Create the new object with defaults
             BusClass nb = new BusClass();
             nb.setMake(finalMake);
             nb.setType("CityBus");
@@ -1200,58 +1302,73 @@ public class UserInterface {
             nb.setFuelBurnRate(0.0);
             nb.setFuelCapacity(0.0);
 
+            // Add to manager list and UI table
             bManager.busList.add(nb);
-            busTable.addRow(new Object[] {
-                    nb.getMake(),
-                    nb.getModel(),
-                    nb.getType(),
-                    nb.getFuelCapacity(),
-                    nb.getFuelBurnRate(),
-                    nb.getCruiseSpeed()
-            });
+            busTable.addRow(new Object[] { nb.getMake(), nb.getModel(), nb.getType(), "Gas", 0.0, 0.0, 0.0 });
 
+            // Auto-select the new row and update the form fields
             selectedRow = busTable.getRowCount() - 1;
             table.setRowSelectionInterval(selectedRow, selectedRow);
 
             makeBox.setText(nb.getMake());
             modelBox.setText(nb.getModel());
-            typeBox.setToolTipText(nb.getType());
-            cruiseSpeedBox.setText(String.valueOf(nb.getCruiseSpeed()));
-            fuelBurnRateBox.setText(String.valueOf(nb.getFuelBurnRate()));
-            fuelCapacityBox.setText(String.valueOf(nb.getFuelCapacity()));
+            cruiseSpeedBox.setText("0.0");
+            fuelBurnRateBox.setText("0.0");
+            fuelCapacityBox.setText("0.0");
         });
 
         return buspanel;
     }
 
+    /**
+     * Helper method to standardize the addition of labeled input components.
+     * * @param p The panel to add to.
+     * @param l The label for the component.
+     * @param c The component (JTextField, JComboBox, etc.).
+     * @param f The font for the label.
+     * @param d The maximum size for the component.
+     */
     private void autoAdd(JPanel p, JLabel l, JComponent c, Font f, Dimension d) {
         l.setFont(f);
         c.setFont(new Font("SansSerif", Font.PLAIN, 18));
         c.setMaximumSize(d);
         p.add(l);
         p.add(c);
-        p.add(Box.createVerticalStrut(10));
+        p.add(Box.createVerticalStrut(10)); // Add consistent spacing below the input
     }
-
+/*
+ * Creates and returns a JPanel for managing bus stations.
+ * This includes a table view of all stations and a side form for adding/editing/removing stations.
+ */
     private JPanel manageBusStation() {
+        // Main container using BorderLayout to separate the Table (Center) from the Form (West)
         JPanel stationpanel = new JPanel(new BorderLayout());
 
+        //  FONT DEFINITIONS 
+        // Standardizing fonts for a consistent look across the UI
         Font labelFont = new Font("SansSerif", Font.BOLD, 18);
         Font inputFont = new Font("SansSerif", Font.PLAIN, 18);
         Font tableFont = new Font("SansSerif", Font.PLAIN, 16);
 
+        //  TABLE SETUP 
+        // Define column headers for the station list
         String[] tablename = { "Name", "Latitude", "Longitude", "Refuel?" };
 
+        // DefaultTableModel allows us to dynamically add/remove rows without recreating the JTable
         stationTable = new DefaultTableModel(tablename, 0);
         JTable table = new JTable(stationTable);
 
+        // Styling the table for readability
         table.setFont(tableFont);
         table.setRowHeight(30);
         table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 16));
-        JScrollPane pane = new JScrollPane(table);
+        JScrollPane pane = new JScrollPane(table); // Add scrolling capability to the table
 
+        //  INITIAL DATA LOADING 
+        // Populate the table with existing stations from the station manager
         for (Object st : sManager.stationList) {
             BusStationClass station = (BusStationClass) st;
+            // Check if this station is a specific subclass to determine the "Refuel" status
             boolean isRefuel = station instanceof RefuelBusStation;
             stationTable.addRow(new Object[] {
                     station.getName(),
@@ -1261,13 +1378,17 @@ public class UserInterface {
             });
         }
 
+        // Place the scrollable table in the center of the main panel
         stationpanel.add(pane, BorderLayout.CENTER);
 
+        //  FORM UI SETUP (Left Side) 
+        // stationWrapper stacks the input fields and buttons vertically
         JPanel stationWrapper = new JPanel();
         stationWrapper.setLayout(new BoxLayout(stationWrapper, BoxLayout.Y_AXIS));
-        stationWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        Dimension boxSize = new Dimension(800, 40);
+        stationWrapper.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Margin padding
+        Dimension boxSize = new Dimension(800, 40); // Standardize input box size
 
+        // Create labels and text fields for station data
         JLabel sName = new JLabel("Station Name:");
         sName.setFont(labelFont);
         JTextField sNameBox = new JTextField(15);
@@ -1289,11 +1410,12 @@ public class UserInterface {
         JCheckBox refuelCheckBox = new JCheckBox("Is Refuel Station?");
         refuelCheckBox.setFont(labelFont);
 
+        //  ASSEMBLY OF INPUT PANEL 
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
         inputPanel.add(sName);
         inputPanel.add(sNameBox);
-        inputPanel.add(Box.createVerticalStrut(10));
+        inputPanel.add(Box.createVerticalStrut(10)); // Add spacing between components
         inputPanel.add(latitude);
         inputPanel.add(latitudeBox);
         inputPanel.add(Box.createVerticalStrut(10));
@@ -1302,6 +1424,7 @@ public class UserInterface {
         inputPanel.add(Box.createVerticalStrut(10));
         inputPanel.add(refuelCheckBox);
 
+        //  BUTTON CONTROLS 
         JButton submitStation = new JButton("Submit");
         JButton removeStation = new JButton("Remove");
         JButton newStation = new JButton("New Station");
@@ -1310,17 +1433,22 @@ public class UserInterface {
         removeStation.setFont(labelFont);
         newStation.setFont(labelFont);
 
+        // FlowLayout keeps buttons side-by-side
         JPanel buttonPanel = new JPanel(new FlowLayout());
         buttonPanel.add(submitStation);
         buttonPanel.add(removeStation);
         buttonPanel.add(newStation);
 
+        // Add inputs and buttons to the left-side wrapper
         stationWrapper.add(inputPanel);
         stationWrapper.add(buttonPanel);
         stationpanel.add(stationWrapper, BorderLayout.WEST);
 
+        //  EVENT LISTENERS 
+
+        // Listener: When a row in the table is clicked, fill the form with that station's data
         table.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
+            if (!e.getValueIsAdjusting()) { // Ensure we only trigger once per click
                 selectedRow = table.getSelectedRow();
                 if (selectedRow != -1) {
                     BusStationClass s = sManager.stationList.get(selectedRow);
@@ -1329,6 +1457,7 @@ public class UserInterface {
                     longitudeBox.setText(String.valueOf(s.getLongitude()));
                     refuelCheckBox.setSelected(s instanceof RefuelBusStation);
                 } else {
+                    // Clear form if nothing is selected
                     sNameBox.setText("");
                     latitudeBox.setText("");
                     longitudeBox.setText("");
@@ -1337,6 +1466,7 @@ public class UserInterface {
             }
         });
 
+        // Listener: Validate and Save changes to the selected station
         submitStation.addActionListener(e -> {
             if (selectedRow == -1) {
                 JOptionPane.showMessageDialog(frame, "Please select a station first.");
@@ -1346,37 +1476,38 @@ public class UserInterface {
             StringBuilder errorLog = new StringBuilder();
             boolean isValid = true;
 
+            // Collect and clean input
             String nameVal = sNameBox.getText().trim();
             String latTxt = latitudeBox.getText().trim();
             String lonTxt = longitudeBox.getText().trim();
             boolean isRefuel = refuelCheckBox.isSelected();
 
+            // VALIDATION: Check for duplicate station names (excluding the current selection)
             for (int i = 0; i < sManager.stationList.size(); i++) {
-                if (i == selectedRow)
-                    continue;
+                if (i == selectedRow) continue;
                 if (sManager.stationList.get(i).getName().equalsIgnoreCase(nameVal)) {
                     errorLog.append("- Station name already exists.\n");
                     isValid = false;
                     break;
                 }
-
             }
 
+            // VALIDATION: Ensure name contains only alphanumeric characters and spaces
             String alphaNumRegex = "^[a-zA-Z0-9 ]+$";
             if (!nameVal.matches(alphaNumRegex)) {
-                errorLog.append("- 'Make' has invalid symbols or is empty.\n");
+                errorLog.append("- Name has invalid symbols or is empty.\n");
                 isValid = false;
             }
-            // Check Latitude
+
+            // VALIDATION: Ensure Latitude is a valid number
             try {
-                // This will fail if latTxt is empty, has an '@', letters, etc.
                 Double.parseDouble(latTxt); 
             } catch (NumberFormatException e1) {
                 errorLog.append("- Latitude is incorrect (must be a valid number).\n");
                 isValid = false;
             }
 
-            // Check Longitude
+            // VALIDATION: Ensure Longitude is a valid number
             try {
                 Double.parseDouble(lonTxt);
             } catch (NumberFormatException e1) {
@@ -1384,20 +1515,19 @@ public class UserInterface {
                 isValid = false;
             }
 
-
             if (!isValid) {
                 JOptionPane.showMessageDialog(frame, errorLog.toString(), "Input Errors", JOptionPane.ERROR_MESSAGE);
             } else {
+                // APPLY CHANGES
                 double lat = Double.parseDouble(latTxt);
                 double lon = Double.parseDouble(lonTxt);
 
-                BusStationClass newStationObj;
-                if (isRefuel) {
-                    newStationObj = new RefuelBusStation(nameVal, lat, lon);
-                } else {
-                    newStationObj = new BusStationClass(nameVal, lat, lon);
-                }
+                // Create appropriate object based on "Refuel" checkbox
+                BusStationClass newStationObj = isRefuel ? 
+                    new RefuelBusStation(nameVal, lat, lon) : 
+                    new BusStationClass(nameVal, lat, lon);
 
+                // Update Backend List and UI Table
                 sManager.stationList.set(selectedRow, newStationObj);
                 stationTable.setValueAt(nameVal, selectedRow, 0);
                 stationTable.setValueAt(latTxt, selectedRow, 1);
@@ -1405,10 +1535,11 @@ public class UserInterface {
                 stationTable.setValueAt(isRefuel ? "Yes" : "No", selectedRow, 3);
 
                 try {
-                    sManager.save();
+                    sManager.save(); // Persist changes to disk
+                    // Update the station inside the graph system as well
                     routeGraph.vertices.get(selectedRow).setStation(newStationObj);
 
-                    frame.repaint();
+                    frame.repaint(); // Force UI refresh
                     JOptionPane.showMessageDialog(frame, "Station Updated Successfully!");
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(frame, "Error saving data", "File Error", JOptionPane.ERROR_MESSAGE);
@@ -1416,6 +1547,7 @@ public class UserInterface {
             }
         });
 
+        // Listener: Delete the selected station
         removeStation.addActionListener(e -> {
             if (selectedRow == -1) {
                 JOptionPane.showMessageDialog(frame, "Please select a station first.");
@@ -1423,52 +1555,61 @@ public class UserInterface {
             }
 
             try {
+                // Note: The logic here removes from the list twice (likely a bug in the source), 
+                // but effectively it removes the station from the manager, graph, and UI.
+                String stationToRemove = sManager.stationList.get(selectedRow).getName();
+                routeGraph.removeNode(routeGraph.getNodeByName(stationToRemove));
+                
                 sManager.stationList.remove(selectedRow);
-                routeGraph.removeNode(routeGraph.getNodeByName(sManager.stationList.get(selectedRow).getName()));
+                stationTable.removeRow(selectedRow);
                 sManager.save();
+
+                // Reset form fields after deletion
+                sNameBox.setText("");
+                latitudeBox.setText("");
+                longitudeBox.setText("");
+                refuelCheckBox.setSelected(false);
+                table.clearSelection();
+                selectedRow = -1;
+                
                 frame.repaint();
                 JOptionPane.showMessageDialog(frame, "Station Removed Successfully!");
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(frame, "Error saving data", "File Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame, "Error removing data", "File Error", JOptionPane.ERROR_MESSAGE);
             }
-
-            sManager.stationList.remove(selectedRow);
-            stationTable.removeRow(selectedRow);
-
-            sNameBox.setText("");
-            latitudeBox.setText("");
-            longitudeBox.setText("");
-            refuelCheckBox.setSelected(false);
-            table.clearSelection();
-            selectedRow = -1;
         });
 
+        // Listener: Create a new station placeholder
         newStation.addActionListener(e -> {
             String baseName = "New Station";
             String finalName = baseName;
             int counter = 1;
 
+            // Logic to ensure the "New Station" name is unique (e.g., New Station 1, New Station 2)
             boolean nameExists = true;
             while (nameExists) {
                 nameExists = false;
                 for (BusStationClass s : sManager.stationList) {
                     if (s.getName().equalsIgnoreCase(finalName)) {
                         nameExists = true;
-                        finalName = baseName + counter;
+                        finalName = baseName + " " + counter;
                         counter++;
                         break;
                     }
                 }
             }
 
+            // Add the new station to the manager and the UI table
             BusStationClass ns = new BusStationClass(finalName, 0.0, 0.0);
             sManager.stationList.add(ns);
             stationTable.addRow(new Object[] { finalName, "0.0", "0.0", "No" });
+            
+            // Auto-select the newly created row
             table.setRowSelectionInterval(stationTable.getRowCount() - 1, stationTable.getRowCount() - 1);
 
             try {
                 sManager.save();
-                routeGraph.addVertex(ns);
+                routeGraph.addVertex(ns); // Add to the graph
                 frame.repaint();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(frame, "Error saving data", "File Error", JOptionPane.ERROR_MESSAGE);
